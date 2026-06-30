@@ -1,0 +1,12 @@
+{
+  "name": "snake",
+  "version": "1.0.0",
+  "description": "Snake Game",
+  "scripts": {
+    "build": "python3 build.py",
+    "size": "echo 'Исходные:' && wc -c index.html snake.css snake.js && echo 'Бандл:' && wc -c index_bundle.html"
+  },
+  "devDependencies": {
+    "uglify-js": "^3.19.3"
+  }
+}
