@@ -1,0 +1,12 @@
+{
+  "name": "minesweeper",
+  "version": "1.0.0",
+  "description": "Minesweeper Game in Snake Style",
+  "scripts": {
+    "build": "python3 build.py",
+    "size": "echo 'Исходные:' && wc -c index.html minesweeper.css minesweeper.js && echo 'Бандл:' && wc -c index_bundle.html"
+  },
+  "devDependencies": {
+    "uglify-js": "^3.19.3"
+  }
+}

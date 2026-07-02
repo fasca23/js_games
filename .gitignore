@@ -1,3 +1,5 @@
 node_modules
 print_files.sh
 output.txt
+index_bundle.html
+package-lock.json

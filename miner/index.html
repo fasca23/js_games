@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>💣 Сапёр</title>
+    <link rel="stylesheet" href="minesweeper.css">
+</head>
+<body>
+    <div class="game-wrapper">
+        <h1>💣 Сапёр</h1>
+        
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            
+            <div class="stats-row">
+                <div class="stat">🚩 Флаги: <span id="flagsValue">0</span></div>
+                <div class="stat">⏱️ Время: <span id="timeValue">0с</span></div>
+            </div>
+            
+            <div class="game-buttons">
+                <button class="restart-btn" onclick="restartGame()">🔄 Заново</button>
+                <button class="mode-btn" id="modeBtn" onclick="toggleMode()">🚩 Режим: Копать</button>
+            </div>
+            
+            <p class="controls-hint">💡 ЛКМ — копать | ПКМ/Долгое нажатие — флаг</p>
+        </div>
+    </div>
+    
+    <script src="minesweeper.js"></script>
+</body>
+</html>
