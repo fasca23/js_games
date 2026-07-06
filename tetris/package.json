@@ -1,10 +1,12 @@
 {
   "name": "tetris",
   "version": "1.0.0",
-  "description": "Tetris Game in Snake Style",
+  "description": "Tetris Game",
   "scripts": {
     "build": "python3 build.py",
-    "size": "echo 'Исходные:' && wc -c index.html tetris.css tetris.js && echo 'Бандл:' && wc -c index_bundle.html"
+    "build-template": "python3 build_template.py",
+    "build-all": "npm run build && npm run build-template",
+    "size": "echo 'Исходные:' && wc -c index.html tetris.css tetris.js && echo 'Бандл:' && wc -c index_bundle.html && echo 'Шаблон:' && wc -c tetris_template_bundle.html"
   },
   "devDependencies": {
     "uglify-js": "^3.19.3"

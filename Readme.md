@@ -10,3 +10,5 @@ npm install
 npm run build
 ### Проверить размеры
 npm run size
+
+npm run build-template

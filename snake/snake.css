@@ -4,23 +4,11 @@
     box-sizing: border-box;
 }
 
-body {
-    background: #0a0a0a;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Arial', sans-serif;
-    overflow-x: hidden;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-.game-wrapper {
+.snake-wrapper {
     padding: 20px;
     width: 100%;
     max-width: 500px;
+    margin: 0 auto;
 }
 
 h1 {
@@ -31,7 +19,7 @@ h1 {
     text-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
 }
 
-.game-container {
+.snake-container {
     text-align: center;
 }
 
@@ -47,17 +35,11 @@ h1 {
     margin: 0 auto;
 }
 
-.score {
-    color: #0f0;
-    font-size: 24px;
-    margin-top: 15px;
-    font-weight: bold;
-}
-
-.speed {
+.score, .speed {
     color: #0f0;
     font-size: 18px;
-    margin-top: 5px;
+    margin-top: 10px;
+    font-weight: bold;
 }
 
 .game-buttons {
@@ -104,18 +86,18 @@ h1 {
 .control-row {
     display: flex;
     justify-content: center;
-    gap: 15px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
 .control-btn {
-    width: 70px;
-    height: 70px;
+    width: 60px;
+    height: 60px;
     background: rgba(0, 255, 0, 0.1);
     border: 2px solid #0f0;
     border-radius: 12px;
     color: #0f0;
-    font-size: 28px;
+    font-size: 24px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -129,10 +111,16 @@ h1 {
     background: rgba(0, 255, 0, 0.4);
 }
 
-.control-btn.placeholder {
-    opacity: 0;
-    pointer-events: none;
-    border-color: transparent;
+.back-link {
+    color: #0f0;
+    text-decoration: none;
+    display: block;
+    margin-top: 20px;
+    text-align: center;
+}
+
+.back-link:hover {
+    text-decoration: underline;
 }
 
 .controls-hint {
