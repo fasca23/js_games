@@ -18,8 +18,8 @@ class Pacman {
     move(map) {
         if (this.dx === 0 && this.dy === 0) return { moved: false, collected: null };
         
-        const newX = this.x + this.dx;
-        const newY = this.y + this.dy;
+        const newX = this.x + this.dx * CONFIG.PACMAN_SPEED;
+        const newY = this.y + this.dy * CONFIG.PACMAN_SPEED;
         
         if (canMoveTo(newX, newY, map)) {
             this.x = newX;

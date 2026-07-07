@@ -1,4 +1,3 @@
-// Конфигурация игры
 const CONFIG = {
     COLS: 21,
     ROWS: 21,
@@ -6,12 +5,18 @@ const CONFIG = {
     GAME_SPEED: 12,
     INITIAL_LIVES: 3,
     
+    // Скорости
+    PACMAN_SPEED: 1.0,
+    GHOST_SPEED: 1.0,
+    GHOST_FRIGHTENED_SPEED: 0.5,
+    
+    // Очки
     DOT_SCORE: 10,
     POWER_SCORE: 50,
     GHOST_SCORE: 200,
     
-    FRIGHTENED_TIME: 200,
-    SCATTER_TIME: 300,
+    // Длительность режима испуга (в кадрах)
+    FRIGHTENED_DURATION: 100,
     
     COLORS: {
         WALL: '#2121de',

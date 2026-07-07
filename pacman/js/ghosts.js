@@ -1,14 +1,12 @@
 class Ghost {
-    constructor(x, y, color, exitDelay) {
+    constructor(x, y, color) {
         this.x = x;
         this.y = y;
         this.dx = 0;
         this.dy = 0;
         this.color = color;
-        this.exitTimer = exitDelay;
         this.startX = x;
         this.startY = y;
-        this.speed = 1.0;
     }
     
     reset() {
@@ -16,18 +14,9 @@ class Ghost {
         this.y = this.startY;
         this.dx = 0;
         this.dy = 0;
-        this.exitTimer = 0; // Сразу активны
-        this.speed = 1.0;
     }
     
     move(map, mode, target) {
-        // Без задержки выхода - сразу атакуют
-        if (this.exitTimer > 0) {
-            this.exitTimer = 0;
-            this.x = 10;
-            this.y = 8;
-        }
-        
         const cellX = Math.floor(this.x);
         const cellY = Math.floor(this.y);
         
@@ -39,10 +28,9 @@ class Ghost {
             this.dy = chosenDir.dy;
         }
         
-        // Максимальная скорость
-        const speedMultiplier = mode === 'frightened' ? 0.6 : this.speed;
-        const newX = this.x + this.dx * speedMultiplier;
-        const newY = this.y + this.dy * speedMultiplier;
+        const speed = mode === 'frightened' ? CONFIG.GHOST_FRIGHTENED_SPEED : CONFIG.GHOST_SPEED;
+        const newX = this.x + this.dx * speed;
+        const newY = this.y + this.dy * speed;
         
         if (canMoveTo(newX, newY, map)) {
             this.x = newX;
@@ -64,10 +52,9 @@ class Ghost {
         const possible = [];
         
         for (const dir of directions) {
-            // Никогда не разворачиваемся, кроме тупиков
+            // В режиме испуга призраки могут разворачиваться
             if (mode !== 'frightened') {
                 if (dir.dx === -this.dx && dir.dy === -this.dy) {
-                    // Проверяем, есть ли другие пути
                     let hasOtherPaths = false;
                     for (const otherDir of directions) {
                         if (otherDir !== dir && 
@@ -97,7 +84,7 @@ class Ghost {
     
     chooseDirection(possibleDirs, mode, target) {
         if (mode === 'frightened') {
-            // Убегают от пакмана
+            // В режиме испуга убегают от пакмана (выбирают дальнее направление)
             return possibleDirs.reduce((best, dir) => {
                 const cellX = Math.floor(this.x);
                 const cellY = Math.floor(this.y);
@@ -109,7 +96,7 @@ class Ghost {
             }, { dir: possibleDirs[0], dist: -Infinity }).dir;
         }
         
-        // Всегда выбираем оптимальный путь к цели
+        // В обычном режиме преследуют пакмана
         return possibleDirs.reduce((best, dir) => {
             const cellX = Math.floor(this.x);
             const cellY = Math.floor(this.y);
@@ -129,89 +116,49 @@ class Ghost {
 class GhostManager {
     constructor() {
         this.ghosts = [];
-        this.mode = 'chase'; // Всегда преследуют
-        this.modeTimer = 9999; // Бесконечное преследование
-        this.scatterTargets = [
-            { x: CONFIG.COLS - 2, y: 1 },
-            { x: 1, y: 1 },
-            { x: CONFIG.COLS - 2, y: CONFIG.ROWS - 2 },
-            { x: 1, y: CONFIG.ROWS - 2 }
-        ];
+        this.mode = 'chase';
+        this.modeTimer = 0;  // Добавлен таймер
         
         this.init();
     }
     
     init() {
-        // Все призраки сразу активны и быстрые
         this.ghosts = [
-            new Ghost(9, 8, CONFIG.COLORS.GHOSTS[0], 0),    // Blinky - сразу
-            new Ghost(10, 8, CONFIG.COLORS.GHOSTS[1], 0),    // Pinky - сразу
-            new Ghost(11, 8, CONFIG.COLORS.GHOSTS[2], 0),    // Inky - сразу
-            new Ghost(10, 9, CONFIG.COLORS.GHOSTS[3], 0)     // Clyde - сразу
+            new Ghost(1, 1, CONFIG.COLORS.GHOSTS[0]),    // Blinky - левый верх
+            new Ghost(19, 19, CONFIG.COLORS.GHOSTS[3])    // Clyde - правый низ
         ];
-        
-        // Все быстрее пакмана
-        this.ghosts[0].speed = 1.4; // Blinky - очень быстрый
-        this.ghosts[1].speed = 1.3; // Pinky - быстрый
-        this.ghosts[2].speed = 1.2; // Inky - быстрый
-        this.ghosts[3].speed = 1.1; // Clyde - чуть быстрее пакмана
     }
     
     reset() {
         this.ghosts.forEach(g => g.reset());
         this.mode = 'chase';
-        this.modeTimer = 9999;
-        
-        // Восстанавливаем скорости
-        this.ghosts[0].speed = 1.4;
-        this.ghosts[1].speed = 1.3;
-        this.ghosts[2].speed = 1.2;
-        this.ghosts[3].speed = 1.1;
+        this.modeTimer = 0;
     }
     
     update(map, pacmanPos) {
-        // Всегда в режиме преследования
-        this.mode = 'chase';
+        // Обработка таймера режима испуга
+        if (this.modeTimer > 0) {
+            this.modeTimer--;
+            if (this.modeTimer === 0 && this.mode === 'frightened') {
+                this.mode = 'chase';  // Возвращаемся в режим преследования
+            }
+        }
         
         this.ghosts.forEach((ghost, index) => {
-            // Разные стратегии атаки
-            const target = this.getChaseTarget(index, pacmanPos, map);
+            const target = this.getChaseTarget(index, pacmanPos);
             ghost.move(map, this.mode, target);
         });
     }
     
-    getChaseTarget(index, pacmanPos, map) {
-        switch(index) {
-            case 0: // Blinky - напрямую к пакману
-                return pacmanPos;
-                
-            case 1: // Pinky - забегает вперед на 4 клетки
-                return {
-                    x: pacmanPos.x + 4,
-                    y: pacmanPos.y + 4
-                };
-                
-            case 2: // Inky - пытается окружить
-                const blinky = this.ghosts[0].getPosition();
-                return {
-                    x: pacmanPos.x + (pacmanPos.x - blinky.x) * 2,
-                    y: pacmanPos.y + (pacmanPos.y - blinky.y) * 2
-                };
-                
-            case 3: // Clyde - атакует с другой стороны
-                const pinky = this.ghosts[1].getPosition();
-                return {
-                    x: pacmanPos.x - (pinky.x - pacmanPos.x),
-                    y: pacmanPos.y - (pinky.y - pacmanPos.y)
-                };
-        }
+    getChaseTarget(index, pacmanPos) {
+        return { x: pacmanPos.x, y: pacmanPos.y };
     }
     
     setFrightened() {
         this.mode = 'frightened';
-        this.modeTimer = 100; // Очень короткий режим испуга
+        this.modeTimer = CONFIG.FRIGHTENED_DURATION;
     }
-    
+
     checkCollisions(pacmanPos) {
         for (const ghost of this.ghosts) {
             const dist = Math.hypot(
@@ -219,14 +166,16 @@ class GhostManager {
                 pacmanPos.y - ghost.y
             );
             
-            // Большой радиус поражения
-            if (dist < 1.2) {
+            if (dist < 1.0) {
                 if (this.mode === 'frightened') {
-                    ghost.x = 10;
-                    ghost.y = 9;
-                    ghost.exitTimer = 0; // Сразу возвращаются
+                    // Съедаем призрака
+                    ghost.x = ghost.startX;
+                    ghost.y = ghost.startY;
+                    ghost.dx = 0;
+                    ghost.dy = 0;
                     return 'eaten';
                 } else {
+                    // Призрак съедает пакмана
                     return 'kill';
                 }
             }
@@ -235,14 +184,17 @@ class GhostManager {
         return null;
     }
     
+    getMode() {
+        return this.mode;  // Добавлен метод для получения режима
+    }
+    
     getAllPositions() {
         return this.ghosts.map(g => ({
             x: g.x,
             y: g.y,
             dx: g.dx,
             dy: g.dy,
-            color: g.color,
-            exitTimer: g.exitTimer
+            color: g.color
         }));
     }
 }

@@ -15,6 +15,8 @@ class Game {
         this.dotsRemaining = 0;
         this.gameRunning = false;
         this.gamePaused = false;
+        this.gameOver = false;
+        this.gameWon = false;
         this.animationFrame = null;
         
         this.uiScore = document.getElementById('scoreValue');
@@ -36,6 +38,8 @@ class Game {
         this.dotsRemaining = this.map.countDots();
         this.gameRunning = true;
         this.gamePaused = false;
+        this.gameOver = false;
+        this.gameWon = false;
         
         this.updateUI();
         
@@ -95,7 +99,7 @@ class Game {
     }
     
     update() {
-        if (this.gamePaused) return;
+        if (this.gamePaused || this.gameOver || this.gameWon) return;
         
         const result = this.pacman.move(this.map);
         
@@ -122,7 +126,8 @@ class Game {
             this.updateUI();
             
             if (this.lives <= 0) {
-                this.gameOver();
+                this.gameOver = true;
+                this.gameRunning = false;
                 return;
             }
             
@@ -130,8 +135,10 @@ class Game {
             this.ghostManager.reset();
         }
         
+        // Проверка победы
         if (this.dotsRemaining === 0) {
-            this.nextLevel();
+            this.gameWon = true;
+            this.gameRunning = false;
         }
     }
     
@@ -144,31 +151,35 @@ class Game {
         this.updateUI();
     }
     
-    gameOver() {
-        this.gameRunning = false;
-        this.renderer.drawOverlay('GAME OVER', '#ff0000');
-        
-        setTimeout(() => {
-            alert(`💀 Игра окончена!\nСчёт: ${this.score}\nУровень: ${this.level}`);
-        }, 100);
-    }
-    
     render() {
         this.renderer.clear();
         this.renderer.drawMap(this.map);
         this.renderer.drawGhosts(
             this.ghostManager.getAllPositions(),
-            this.ghostManager.mode
+            this.ghostManager.getMode()
         );
         this.renderer.drawPacman(this.pacman);
         this.renderer.update();
         
-        if (this.gamePaused) {
+        if (this.gamePaused && !this.gameOver && !this.gameWon) {
             this.renderer.drawOverlay('ПАУЗА', '#ffff00');
+        }
+        
+        if (this.gameOver) {
+            this.renderer.drawOverlay('GAME OVER', '#ff0000');
+        }
+        
+        if (this.gameWon) {
+            this.renderer.drawOverlay('ПОБЕДА!', '#00ff00');
         }
     }
     
     gameLoop() {
+        if (this.gameOver || this.gameWon) {
+            this.render();
+            return;
+        }
+        
         if (!this.gameRunning) {
             this.render();
             return;
