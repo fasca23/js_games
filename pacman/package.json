@@ -1,0 +1,12 @@
+{
+  "name": "pacman",
+  "version": "1.0.0",
+  "description": "Pac-Man Game with build optimization",
+  "scripts": {
+    "build": "python3 build.py",
+    "size": "echo 'Исходные:' && wc -c index.html pacman.css pacman.js && echo 'Бандл:' && wc -c index_bundle.html"
+  },
+  "devDependencies": {
+    "uglify-js": "^3.19.3"
+  }
+}

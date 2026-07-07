@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pac-Man Fix v2</title>
+    <style>
+        body {
+            background: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        canvas {
+            border: 2px solid yellow;
+            background: #000;
+        }
+        .info {
+            color: #0f0;
+            font-family: monospace;
+            background: rgba(0,0,0,0.9);
+            padding: 15px;
+            margin-bottom: 10px;
+            text-align: center;
+            min-width: 400px;
+            font-size: 16px;
+        }
+        button {
+            padding: 15px 25px;
+            margin: 5px;
+            font-size: 20px;
+            cursor: pointer;
+            background: #444;
+            color: white;
+            border: 2px solid yellow;
+            border-radius: 5px;
+        }
+        button:active {
+            background: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="info" id="info">Загрузка...</div>
+    <canvas id="gameCanvas"></canvas>
+    <div style="margin-top:10px;">
+        <div>
+            <button onclick="move(0,-1)">▲ Вверх</button>
+        </div>
+        <div>
+            <button onclick="move(-1,0)">◀ Влево</button>
+            <button onclick="move(1,0)">Вправо ▶</button>
+        </div>
+        <div>
+            <button onclick="move(0,1)">▼ Вниз</button>
+        </div>
+    </div>
+    
+    <script>
+        const info = document.getElementById('info');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const COLS = 21;
+        const ROWS = 23;
+        const CELL_SIZE = 20;
+        
+        canvas.width = COLS * CELL_SIZE;
+        canvas.height = ROWS * CELL_SIZE;
+        
+        // Карта (1=стена, 0=пусто, 2=точка, 3=энерджайзер)
+        const MAP = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+            [1,3,1,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,1,3,1],
+            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+            [1,2,1,1,1,2,1,2,1,1,1,1,1,2,1,2,1,1,1,2,1],
+            [1,2,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,2,2,1],
+            [1,1,1,1,1,2,1,1,1,0,1,0,1,1,1,2,1,1,1,1,1],
+            [0,0,0,0,1,2,1,0,0,0,0,0,0,0,1,2,1,0,0,0,0],
+            [1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1],
+            [0,0,0,0,0,2,0,0,1,0,0,0,1,0,0,2,0,0,0,0,0],
+            [1,1,1,1,1,2,1,0,1,1,1,1,1,0,1,2,1,1,1,1,1],
+            [0,0,0,0,1,2,1,0,0,0,0,0,0,0,1,2,1,0,0,0,0],
+            [1,1,1,1,1,2,1,0,1,1,1,1,1,0,1,2,1,1,1,1,1],
+            [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+            [1,3,1,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,1,3,1],
+            [1,2,2,1,2,2,2,2,2,2,2,2,2,2,2,2,2,1,2,2,1],
+            [1,1,2,1,2,1,2,1,1,1,1,1,1,1,2,1,2,1,2,1,1],
+            [1,2,2,2,2,1,2,2,2,2,1,2,2,2,2,1,2,2,2,2,1],
+            [1,2,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,2,1],
+            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+        
+        // Пакман в позиции (1,1) - это точка
+        let pacmanX = 1;
+        let pacmanY = 1;
+        
+        info.innerHTML = `Пакман: (${pacmanX}, ${pacmanY})`;
+        
+        function canMoveTo(x, y) {
+            // Туннель на строках 9 и 11
+            if ((y === 9 || y === 11) && (x < 0 || x >= COLS)) return true;
+            
+            // Границы
+            if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false;
+            
+            // Проверяем клетку
+            const cellX = Math.floor(x);
+            const cellY = Math.floor(y);
+            
+            // ПРОВЕРКА СУЩЕСТВОВАНИЯ СТРОКИ
+            if (!MAP[cellY]) return false;
+            
+            return MAP[cellY][cellX] !== 1;
+        }
+        
+        function draw() {
+            try {
+                // Очистка
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Рисуем карту
+                for (let r = 0; r < ROWS; r++) {
+                    // ПРОВЕРКА СУЩЕСТВОВАНИЯ СТРОКИ
+                    if (!MAP[r]) {
+                        console.error('MAP[' + r + '] is undefined!');
+                        continue;
+                    }
+                    
+                    for (let c = 0; c < COLS; c++) {
+                        const x = c * CELL_SIZE;
+                        const y = r * CELL_SIZE;
+                        
+                        const cell = MAP[r][c];
+                        
+                        if (cell === 1) {
+                            // Стена
+                            ctx.fillStyle = '#2121de';
+                            ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+                            ctx.fillStyle = '#000';
+                            ctx.fillRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                        } else if (cell === 2) {
+                            // Точка
+                            ctx.fillStyle = '#ffb8ae';
+                            ctx.beginPath();
+                            ctx.arc(x + 10, y + 10, 3, 0, Math.PI * 2);
+                            ctx.fill();
+                        } else if (cell === 3) {
+                            // Энерджайзер
+                            ctx.fillStyle = '#ffb8ae';
+                            ctx.beginPath();
+                            ctx.arc(x + 10, y + 10, 7, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+                
+                // Рисуем пакмана
+                const px = pacmanX * CELL_SIZE + 10;
+                const py = pacmanY * CELL_SIZE + 10;
+                
+                // Обводка
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(px, py, 11, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Желтое тело
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(px, py, 9, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Глаз
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(px + 3, py - 3, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Информация
+                const cellValue = (MAP[pacmanY] && MAP[pacmanY][pacmanX] !== undefined) ? MAP[pacmanY][pacmanX] : '?';
+                info.innerHTML = `Пакман: (${pacmanX}, ${pacmanY}) | Клетка: ${cellValue}`;
+                
+            } catch(e) {
+                console.error('Draw error:', e);
+                info.innerHTML = 'ERROR: ' + e.message;
+            }
+        }
+        
+        window.move = function(dx, dy) {
+            const newX = pacmanX + dx;
+            const newY = pacmanY + dy;
+            
+            console.log(`Движение: (${pacmanX},${pacmanY}) -> (${newX},${newY})`);
+            
+            if (canMoveTo(newX, newY)) {
+                pacmanX = newX;
+                pacmanY = newY;
+                
+                // Туннель
+                if (pacmanX < 0) pacmanX = COLS - 1;
+                if (pacmanX >= COLS) pacmanX = 0;
+                
+                console.log('✅ OK');
+            } else {
+                console.log('❌ Стена');
+            }
+            
+            draw();
+        };
+        
+        // Клавиатура
+        document.addEventListener('keydown', function(e) {
+            switch(e.key) {
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    move(-1, 0);
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    move(1, 0);
+                    e.preventDefault();
+                    break;
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    move(0, -1);
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    move(0, 1);
+                    e.preventDefault();
+                    break;
+            }
+        });
+        
+        // Первая отрисовка
+        draw();
+        console.log('Игра готова!');
+    </script>
+</body>
+</html>

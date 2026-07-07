@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>👻 Pac-Man</title>
+    <link rel="stylesheet" href="pacman.css">
+</head>
+<body>
+    <div class="game-wrapper">
+        <h1>👻 Pac-Man</h1>
+        
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            
+            <div class="stats-row">
+                <div class="stat">🏆 Счёт: <span id="scoreValue">0</span></div>
+                <div class="stat">❤️ Жизни: <span id="livesValue">3</span></div>
+                <div class="stat">🎯 Уровень: <span id="levelValue">1</span></div>
+            </div>
+            
+            <div class="game-buttons">
+                <button class="restart-btn" onclick="restartGame()">🔄 Заново</button>
+                <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸️ Пауза</button>
+            </div>
+            
+            <div class="mobile-controls">
+                <button class="ctrl-btn up-btn" ontouchstart="setDirection(0,-1)" onmousedown="setDirection(0,-1)">▲</button>
+                <div class="mid-row">
+                    <button class="ctrl-btn left-btn" ontouchstart="setDirection(-1,0)" onmousedown="setDirection(-1,0)">◀</button>
+                    <button class="ctrl-btn right-btn" ontouchstart="setDirection(1,0)" onmousedown="setDirection(1,0)">▶</button>
+                </div>
+                <button class="ctrl-btn down-btn" ontouchstart="setDirection(0,1)" onmousedown="setDirection(0,1)">▼</button>
+            </div>
+            
+            <p class="controls-hint">💡 Стрелки/WASD — движение | Пробел — пауза</p>
+        </div>
+    </div>
+    
+    <script src="pacman.js"></script>
+</body>
+</html>
