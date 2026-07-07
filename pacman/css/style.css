@@ -96,37 +96,42 @@ h1 {
     transform: scale(0.95);
 }
 
+/* Мобильные кнопки управления */
 .mobile-controls {
-    margin-top: 15px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
+    display: none;
+    margin-top: 20px;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
-.mid-row {
+.control-row {
     display: flex;
-    gap: 40px;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 8px;
 }
 
-.ctrl-btn {
-    width: 55px;
-    height: 55px;
-    font-size: 22px;
+.control-btn {
+    width: 70px;
+    height: 70px;
+    background: rgba(255, 255, 0, 0.15);
     border: 2px solid #ffff00;
-    background: rgba(255, 255, 0, 0.1);
-    color: #ffff00;
     border-radius: 12px;
+    color: #ffff00;
+    font-size: 28px;
     cursor: pointer;
-    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
-.ctrl-btn:active {
-    background: rgba(255, 255, 0, 0.3);
-    transform: scale(0.9);
+.control-btn:active {
+    background: rgba(255, 255, 0, 0.4);
+    box-shadow: 0 0 15px rgba(255, 255, 0, 0.4);
 }
 
 .controls-hint {
@@ -135,8 +140,13 @@ h1 {
     margin-top: 15px;
 }
 
-@media (min-width: 768px) {
+@media (max-width: 768px) {
+    #gameCanvas {
+        width: 100%;
+        height: auto;
+    }
+    
     .mobile-controls {
-        display: none;
+        display: block;
     }
 }

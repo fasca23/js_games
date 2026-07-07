@@ -1,0 +1,824 @@
+{% extends "base.html" %}
+
+{% block title %}👻 Pac-Man — Классическая игра{% endblock %}
+
+{% block extra_head %}
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a0a;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:'Arial', sans-serif;overflow-x:hidden;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}.game-wrapper{padding:20px;width:100%;max-width:500px}h1{text-align:center;color:#ff0;font-size:32px;margin-bottom:15px;text-shadow:0 0 20px rgba(255, 255, 0, 0.6)}.game-container{text-align:center}#gameCanvas{border:2px solid #ff0;background:#000;box-shadow:0 0 25px rgba(255, 255, 0, 0.3);border-radius:10px;max-width:100%;height:auto;touch-action:none;display:block;margin:0 auto;cursor:pointer}.stats-row{display:flex;justify-content:space-around;margin-top:15px}.stat{color:#ff0;font-size:18px;font-weight:bold}.game-buttons{display:flex;gap:10px;justify-content:center;margin-top:15px;flex-wrap:wrap}.restart-btn, .pause-btn{padding:12px 28px;font-size:16px;border:none;cursor:pointer;font-weight:bold;color:white;border-radius:8px;transition:transform 0.2s, box-shadow 0.2s}.restart-btn{background:linear-gradient(135deg, #ff0, #fa0);color:#1a1a1a}.pause-btn{background:linear-gradient(135deg, #0ff, #08f)}.restart-btn:hover, .pause-btn:hover{transform:scale(1.05)}.restart-btn:active, .pause-btn:active{transform:scale(0.95)}.mobile-controls{display:none;margin-top:20px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}.control-row{display:flex;justify-content:center;gap:15px;margin-bottom:8px}.control-btn{width:70px;height:70px;background:rgba(255, 255, 0, 0.15);border:2px solid #ff0;border-radius:12px;color:#ff0;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.1s;-webkit-tap-highlight-color:transparent;touch-action:manipulation}.control-btn:active{background:rgba(255, 255, 0, 0.4);box-shadow:0 0 15px rgba(255, 255, 0, 0.4)}.controls-hint{color:#888;font-size:14px;margin-top:15px}@media (max-width:768px){#gameCanvas{width:100%;height:auto}.mobile-controls{display:block}}</style>
+{% endblock %}
+
+{% block content %}
+<div class="game-wrapper">
+    <h1>👻 Pac-Man</h1>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="stats-row">
+            <div class="stat">🏆 Счёт: <span id="scoreValue">0</span></div>
+            <div class="stat">❤️ Жизни: <span id="livesValue">3</span></div>
+            <div class="stat">🎯 Уровень: <span id="levelValue">1</span></div>
+        </div>
+        
+        <div class="game-buttons">
+            <button class="restart-btn" onclick="restartGame()">🔄 Заново</button>
+            <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸️ Пауза</button>
+        </div>
+        
+        <!-- Мобильные кнопки управления -->
+        <div class="mobile-controls">
+            <div class="control-row">
+                <button class="control-btn" id="btnUp">▲</button>
+            </div>
+            <div class="control-row">
+                <button class="control-btn" id="btnLeft">◀</button>
+                <button class="control-btn" id="btnDown">▼</button>
+                <button class="control-btn" id="btnRight">▶</button>
+            </div>
+        </div>
+        
+        <p class="controls-hint">💡 Стрелки/WASD — движение | Пробел — пауза</p>
+    </div>
+    
+    <a href="/projects" class="back-link">← Назад к проектам</a>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% raw %}
+<script>const CONFIG = {
+    COLS: 21,
+    ROWS: 21,
+    CELL_SIZE: 20,
+    GAME_SPEED: 12,
+    INITIAL_LIVES: 3,
+    
+    // Скорости
+    PACMAN_SPEED: 1.0,
+    GHOST_SPEED: 1.0,
+    GHOST_FRIGHTENED_SPEED: 0.5,
+    
+    // Очки
+    DOT_SCORE: 10,
+    POWER_SCORE: 50,
+    GHOST_SCORE: 200,
+    
+    // Длительность режима испуга (в кадрах)
+    FRIGHTENED_DURATION: 100,
+    
+    COLORS: {
+        WALL: '#2121de',
+        DOT: '#ffb8ae',
+        POWER: '#ffb8ae',
+        PACMAN: '#ffff00',
+        GHOST_FRIGHTENED: '#2121ff',
+        GHOSTS: ['#ff0000', '#ffb8ff', '#00ffff', '#ffb852']
+    }
+};
+const MAP_DATA = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+    [1,3,1,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,1,3,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,2,1,1,1,2,1,2,1,1,1,1,1,2,1,2,1,1,1,2,1],
+    [1,2,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,2,2,1],
+    [1,1,1,1,1,2,1,1,1,0,1,0,1,1,1,2,1,1,1,1,1],
+    [0,0,0,0,1,2,1,0,0,0,0,0,0,0,1,2,1,0,0,0,0],
+    [1,1,1,1,1,2,1,1,1,1,0,1,1,1,1,2,1,1,1,1,1],
+    [0,0,0,0,0,2,0,0,1,0,0,0,1,0,0,2,0,0,0,0,0],
+    [1,1,1,1,1,2,1,0,1,1,1,1,1,0,1,2,1,1,1,1,1],
+    [0,0,0,0,1,2,1,0,0,0,0,0,0,0,1,2,1,0,0,0,0],
+    [1,1,1,1,1,2,1,0,1,1,1,1,1,0,1,2,1,1,1,1,1],
+    [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+    [1,3,1,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,1,3,1],
+    [1,2,2,1,2,2,2,2,2,2,2,2,2,2,2,2,2,1,2,2,1],
+    [1,1,2,1,2,1,2,1,1,1,1,1,1,1,2,1,2,1,2,1,1],
+    [1,2,2,2,2,1,2,2,2,2,1,2,2,2,2,1,2,2,2,2,1],
+    [1,2,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+// Но нам нужно открыть домик призраков!
+// Меняем клетки (8,8), (9,8), (10,8), (11,8), (12,8) на проход (0)
+// Это создаст выход из домика вверх
+
+const GHOST_HOUSE_MODIFICATIONS = [
+    { x: 8, y: 8, value: 0 },  // Открываем левую стену домика
+    { x: 9, y: 8, value: 0 },  // Проход
+    { x: 10, y: 8, value: 0 }, // Выход
+    { x: 11, y: 8, value: 0 }, // Проход  
+    { x: 12, y: 8, value: 0 }, // Открываем правую стену домика
+];
+
+const CELL_TYPES = {
+    EMPTY: 0,
+    WALL: 1,
+    DOT: 2,
+    POWER: 3
+};
+
+class Map {
+    constructor() {
+        this.grid = [];
+        this.reset();
+    }
+    
+    reset() {
+        this.grid = MAP_DATA.map(row => [...row]);
+        
+        // Открываем домик призраков
+        for (const mod of GHOST_HOUSE_MODIFICATIONS) {
+            this.grid[mod.y][mod.x] = mod.value;
+        }
+    }
+    
+    getCell(x, y) {
+        if (y < 0 || y >= this.grid.length) return null;
+        if (x < 0 || x >= this.grid[0].length) return null;
+        return this.grid[y][x];
+    }
+    
+    setCell(x, y, value) {
+        if (y >= 0 && y < this.grid.length && x >= 0 && x < this.grid[0].length) {
+            this.grid[y][x] = value;
+        }
+    }
+    
+    isWall(x, y) {
+        const cell = this.getCell(x, y);
+        return cell === CELL_TYPES.WALL;
+    }
+    
+    isDot(x, y) {
+        const cell = this.getCell(x, y);
+        return cell === CELL_TYPES.DOT;
+    }
+    
+    isPower(x, y) {
+        const cell = this.getCell(x, y);
+        return cell === CELL_TYPES.POWER;
+    }
+    
+    countDots() {
+        let count = 0;
+        for (let r = 0; r < CONFIG.ROWS; r++) {
+            for (let c = 0; c < CONFIG.COLS; c++) {
+                if (this.grid[r][c] === CELL_TYPES.DOT || this.grid[r][c] === CELL_TYPES.POWER) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+}
+class Pacman {
+    constructor() {
+        this.reset();
+    }
+    
+    reset() {
+        this.x = 10;
+        this.y = 15;
+        this.dx = 0;
+        this.dy = 0;
+    }
+    
+    setDirection(dx, dy) {
+        this.dx = dx;
+        this.dy = dy;
+    }
+    
+    move(map) {
+        if (this.dx === 0 && this.dy === 0) return { moved: false, collected: null };
+        
+        const newX = this.x + this.dx * CONFIG.PACMAN_SPEED;
+        const newY = this.y + this.dy * CONFIG.PACMAN_SPEED;
+        
+        if (canMoveTo(newX, newY, map)) {
+            this.x = newX;
+            this.y = newY;
+            
+            if (this.x < 0) this.x = CONFIG.COLS - 1;
+            if (this.x >= CONFIG.COLS) this.x = 0;
+            
+            const cellX = Math.floor(this.x);
+            const cellY = Math.floor(this.y);
+            
+            let collected = null;
+            
+            if (map.isDot(cellX, cellY)) {
+                map.setCell(cellX, cellY, CELL_TYPES.EMPTY);
+                collected = 'dot';
+            } else if (map.isPower(cellX, cellY)) {
+                map.setCell(cellX, cellY, CELL_TYPES.EMPTY);
+                collected = 'power';
+            }
+            
+            return { moved: true, collected };
+        }
+        
+        this.dx = 0;
+        this.dy = 0;
+        return { moved: false, collected: null };
+    }
+    
+    getPosition() {
+        return { x: this.x, y: this.y };
+    }
+    
+    getDirection() {
+        return { dx: this.dx, dy: this.dy };
+    }
+}
+
+function canMoveTo(x, y, map) {
+    if ((y === 9 || y === 11) && (x < 0 || x >= CONFIG.COLS)) return true;
+    if (x < 0 || x >= CONFIG.COLS || y < 0 || y >= CONFIG.ROWS) return false;
+    return !map.isWall(Math.floor(x), Math.floor(y));
+}
+class Ghost {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.dx = 0;
+        this.dy = 0;
+        this.color = color;
+        this.startX = x;
+        this.startY = y;
+    }
+    
+    reset() {
+        this.x = this.startX;
+        this.y = this.startY;
+        this.dx = 0;
+        this.dy = 0;
+    }
+    
+    move(map, mode, target) {
+        const cellX = Math.floor(this.x);
+        const cellY = Math.floor(this.y);
+        
+        const possibleDirs = this.getPossibleDirections(cellX, cellY, map, mode);
+        
+        if (possibleDirs.length > 0) {
+            const chosenDir = this.chooseDirection(possibleDirs, mode, target);
+            this.dx = chosenDir.dx;
+            this.dy = chosenDir.dy;
+        }
+        
+        const speed = mode === 'frightened' ? CONFIG.GHOST_FRIGHTENED_SPEED : CONFIG.GHOST_SPEED;
+        const newX = this.x + this.dx * speed;
+        const newY = this.y + this.dy * speed;
+        
+        if (canMoveTo(newX, newY, map)) {
+            this.x = newX;
+            this.y = newY;
+            
+            if (this.x < 0) this.x = CONFIG.COLS - 1;
+            if (this.x >= CONFIG.COLS) this.x = 0;
+        }
+    }
+    
+    getPossibleDirections(cellX, cellY, map, mode) {
+        const directions = [
+            { dx: 0, dy: -1 },
+            { dx: 1, dy: 0 },
+            { dx: 0, dy: 1 },
+            { dx: -1, dy: 0 }
+        ];
+        
+        const possible = [];
+        
+        for (const dir of directions) {
+            // В режиме испуга призраки могут разворачиваться
+            if (mode !== 'frightened') {
+                if (dir.dx === -this.dx && dir.dy === -this.dy) {
+                    let hasOtherPaths = false;
+                    for (const otherDir of directions) {
+                        if (otherDir !== dir && 
+                            !(otherDir.dx === -this.dx && otherDir.dy === -this.dy)) {
+                            const nx = cellX + otherDir.dx;
+                            const ny = cellY + otherDir.dy;
+                            if (canMoveTo(nx, ny, map)) {
+                                hasOtherPaths = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (hasOtherPaths) continue;
+                }
+            }
+            
+            const nextX = cellX + dir.dx;
+            const nextY = cellY + dir.dy;
+            
+            if (canMoveTo(nextX, nextY, map)) {
+                possible.push(dir);
+            }
+        }
+        
+        return possible;
+    }
+    
+    chooseDirection(possibleDirs, mode, target) {
+        if (mode === 'frightened') {
+            // В режиме испуга убегают от пакмана (выбирают дальнее направление)
+            return possibleDirs.reduce((best, dir) => {
+                const cellX = Math.floor(this.x);
+                const cellY = Math.floor(this.y);
+                const dist = Math.hypot(
+                    cellX + dir.dx - target.x,
+                    cellY + dir.dy - target.y
+                );
+                return dist > best.dist ? { dir, dist } : best;
+            }, { dir: possibleDirs[0], dist: -Infinity }).dir;
+        }
+        
+        // В обычном режиме преследуют пакмана
+        return possibleDirs.reduce((best, dir) => {
+            const cellX = Math.floor(this.x);
+            const cellY = Math.floor(this.y);
+            const dist = Math.hypot(
+                cellX + dir.dx - target.x,
+                cellY + dir.dy - target.y
+            );
+            return dist < best.dist ? { dir, dist } : best;
+        }, { dir: possibleDirs[0], dist: Infinity }).dir;
+    }
+    
+    getPosition() {
+        return { x: this.x, y: this.y };
+    }
+}
+
+class GhostManager {
+    constructor() {
+        this.ghosts = [];
+        this.mode = 'chase';
+        this.modeTimer = 0;  // Добавлен таймер
+        
+        this.init();
+    }
+    
+    init() {
+        this.ghosts = [
+            new Ghost(1, 1, CONFIG.COLORS.GHOSTS[0]),    // Blinky - левый верх
+            new Ghost(19, 19, CONFIG.COLORS.GHOSTS[3])    // Clyde - правый низ
+        ];
+    }
+    
+    reset() {
+        this.ghosts.forEach(g => g.reset());
+        this.mode = 'chase';
+        this.modeTimer = 0;
+    }
+    
+    update(map, pacmanPos) {
+        // Обработка таймера режима испуга
+        if (this.modeTimer > 0) {
+            this.modeTimer--;
+            if (this.modeTimer === 0 && this.mode === 'frightened') {
+                this.mode = 'chase';  // Возвращаемся в режим преследования
+            }
+        }
+        
+        this.ghosts.forEach((ghost, index) => {
+            const target = this.getChaseTarget(index, pacmanPos);
+            ghost.move(map, this.mode, target);
+        });
+    }
+    
+    getChaseTarget(index, pacmanPos) {
+        return { x: pacmanPos.x, y: pacmanPos.y };
+    }
+    
+    setFrightened() {
+        this.mode = 'frightened';
+        this.modeTimer = CONFIG.FRIGHTENED_DURATION;
+    }
+
+    checkCollisions(pacmanPos) {
+        for (const ghost of this.ghosts) {
+            const dist = Math.hypot(
+                pacmanPos.x - ghost.x,
+                pacmanPos.y - ghost.y
+            );
+            
+            if (dist < 1.0) {
+                if (this.mode === 'frightened') {
+                    // Съедаем призрака
+                    ghost.x = ghost.startX;
+                    ghost.y = ghost.startY;
+                    ghost.dx = 0;
+                    ghost.dy = 0;
+                    return 'eaten';
+                } else {
+                    // Призрак съедает пакмана
+                    return 'kill';
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    getMode() {
+        return this.mode;  // Добавлен метод для получения режима
+    }
+    
+    getAllPositions() {
+        return this.ghosts.map(g => ({
+            x: g.x,
+            y: g.y,
+            dx: g.dx,
+            dy: g.dy,
+            color: g.color
+        }));
+    }
+}
+class Renderer {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.frameCount = 0;
+    }
+    
+    clear() {
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    
+    drawMap(map) {
+        for (let r = 0; r < CONFIG.ROWS; r++) {
+            for (let c = 0; c < CONFIG.COLS; c++) {
+                const x = c * CONFIG.CELL_SIZE;
+                const y = r * CONFIG.CELL_SIZE;
+                const cell = map.getCell(c, r);
+                
+                if (cell === CELL_TYPES.WALL) {
+                    this.drawWall(x, y);
+                } else if (cell === CELL_TYPES.DOT) {
+                    this.drawDot(x, y);
+                } else if (cell === CELL_TYPES.POWER) {
+                    this.drawPower(x, y);
+                }
+            }
+        }
+    }
+    
+    drawWall(x, y) {
+        this.ctx.fillStyle = CONFIG.COLORS.WALL;
+        this.ctx.fillRect(x, y, CONFIG.CELL_SIZE, CONFIG.CELL_SIZE);
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(x + 2, y + 2, CONFIG.CELL_SIZE - 4, CONFIG.CELL_SIZE - 4);
+    }
+    
+    drawDot(x, y) {
+        this.ctx.fillStyle = CONFIG.COLORS.DOT;
+        this.ctx.beginPath();
+        this.ctx.arc(x + 10, y + 10, 3, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+    
+    drawPower(x, y) {
+        const alpha = 0.5 + 0.3 * Math.sin(Date.now() / 200);
+        this.ctx.fillStyle = `rgba(255, 184, 174, ${alpha})`;
+        this.ctx.beginPath();
+        this.ctx.arc(x + 10, y + 10, 7, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+    
+    drawPacman(pacman) {
+        const px = pacman.x * CONFIG.CELL_SIZE;
+        const py = pacman.y * CONFIG.CELL_SIZE;
+        const { dx, dy } = pacman.getDirection();
+        
+        this.ctx.save();
+        this.ctx.translate(px + 10, py + 10);
+        
+        let angle = 0;
+        if (dx === 1) angle = 0;
+        else if (dx === -1) angle = Math.PI;
+        else if (dy === -1) angle = -Math.PI / 2;
+        else if (dy === 1) angle = Math.PI / 2;
+        
+        this.ctx.rotate(angle);
+        
+        this.ctx.fillStyle = CONFIG.COLORS.PACMAN;
+        this.ctx.beginPath();
+        const mouthAngle = Math.abs(Math.sin(this.frameCount * 0.3)) * 0.25 * Math.PI;
+        this.ctx.arc(0, 0, 9, mouthAngle, 2 * Math.PI - mouthAngle);
+        this.ctx.lineTo(0, 0);
+        this.ctx.fill();
+        
+        this.ctx.restore();
+    }
+    
+    drawGhosts(ghostPositions, mode) {
+        ghostPositions.forEach((ghost, index) => {
+            const x = ghost.x * CONFIG.CELL_SIZE;
+            const y = ghost.y * CONFIG.CELL_SIZE;
+            
+            if (ghost.exitTimer > 0 && ghost.y > 8) return;
+            
+            const color = mode === 'frightened' ? CONFIG.COLORS.GHOST_FRIGHTENED : ghost.color;
+            
+            this.ctx.fillStyle = color;
+            this.ctx.beginPath();
+            this.ctx.arc(x + 10, y + 10, 9, Math.PI, 0);
+            
+            const waveOffset = Math.sin(Date.now() / 200 + index) * 2;
+            const bottomY = y + 19;
+            
+            for (let i = 0; i <= 4; i++) {
+                const wx = x + (i * 20) / 4;
+                const wy = bottomY + (i % 2 === 0 ? waveOffset : -waveOffset);
+                this.ctx.lineTo(wx, wy);
+            }
+            
+            this.ctx.lineTo(x + 1, y + 10);
+            this.ctx.fill();
+            
+            this.ctx.fillStyle = '#fff';
+            this.ctx.beginPath();
+            this.ctx.arc(x + 6, y + 8, 4, 0, Math.PI * 2);
+            this.ctx.arc(x + 14, y + 8, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            this.ctx.fillStyle = '#00f';
+            this.ctx.beginPath();
+            this.ctx.arc(x + 6 + ghost.dx * 1.5, y + 8 + ghost.dy * 1.5, 2, 0, Math.PI * 2);
+            this.ctx.arc(x + 14 + ghost.dx * 1.5, y + 8 + ghost.dy * 1.5, 2, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+    }
+    
+    drawOverlay(text, color) {
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = color;
+        this.ctx.font = 'bold 24px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(text, this.canvas.width / 2, this.canvas.height / 2);
+    }
+    
+    update() {
+        this.frameCount++;
+    }
+}
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.canvas.width = CONFIG.COLS * CONFIG.CELL_SIZE;
+        this.canvas.height = CONFIG.ROWS * CONFIG.CELL_SIZE;
+        
+        this.renderer = new Renderer(this.canvas);
+        this.map = new Map();
+        this.pacman = new Pacman();
+        this.ghostManager = new GhostManager();
+        
+        this.score = 0;
+        this.lives = CONFIG.INITIAL_LIVES;
+        this.level = 1;
+        this.dotsRemaining = 0;
+        this.gameRunning = false;
+        this.gamePaused = false;
+        this.gameOver = false;
+        this.gameWon = false;
+        this.animationFrame = null;
+        
+        this.uiScore = document.getElementById('scoreValue');
+        this.uiLives = document.getElementById('livesValue');
+        this.uiLevel = document.getElementById('levelValue');
+        this.uiPause = document.getElementById('pauseBtn');
+        
+        this.setupControls();
+    }
+    
+    init() {
+        this.map.reset();
+        this.pacman.reset();
+        this.ghostManager.reset();
+        
+        this.score = 0;
+        this.lives = CONFIG.INITIAL_LIVES;
+        this.level = 1;
+        this.dotsRemaining = this.map.countDots();
+        this.gameRunning = true;
+        this.gamePaused = false;
+        this.gameOver = false;
+        this.gameWon = false;
+        
+        this.updateUI();
+        
+        if (this.uiPause) this.uiPause.textContent = '⏸️ Пауза';
+        
+        if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+        this.gameLoop();
+    }
+    
+    updateUI() {
+        if (this.uiScore) this.uiScore.textContent = this.score;
+        if (this.uiLives) this.uiLives.textContent = this.lives;
+        if (this.uiLevel) this.uiLevel.textContent = this.level;
+    }
+    
+    setupControls() {
+        window.addEventListener('keydown', (e) => {
+            if (!this.gameRunning) {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    this.init();
+                    e.preventDefault();
+                }
+                return;
+            }
+            
+            switch(e.key) {
+                case 'ArrowLeft': case 'a': case 'A':
+                    this.pacman.setDirection(-1, 0);
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight': case 'd': case 'D':
+                    this.pacman.setDirection(1, 0);
+                    e.preventDefault();
+                    break;
+                case 'ArrowUp': case 'w': case 'W':
+                    this.pacman.setDirection(0, -1);
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown': case 's': case 'S':
+                    this.pacman.setDirection(0, 1);
+                    e.preventDefault();
+                    break;
+                case ' ':
+                    this.togglePause();
+                    e.preventDefault();
+                    break;
+            }
+        });
+    }
+    
+    togglePause() {
+        if (!this.gameRunning) return;
+        this.gamePaused = !this.gamePaused;
+        if (this.uiPause) {
+            this.uiPause.textContent = this.gamePaused ? '▶️ Играть' : '⏸️ Пауза';
+        }
+    }
+    
+    update() {
+        if (this.gamePaused || this.gameOver || this.gameWon) return;
+        
+        const result = this.pacman.move(this.map);
+        
+        if (result.collected === 'dot') {
+            this.score += CONFIG.DOT_SCORE;
+            this.dotsRemaining--;
+            this.updateUI();
+        } else if (result.collected === 'power') {
+            this.score += CONFIG.POWER_SCORE;
+            this.dotsRemaining--;
+            this.ghostManager.setFrightened();
+            this.updateUI();
+        }
+        
+        this.ghostManager.update(this.map, this.pacman.getPosition());
+        
+        const collision = this.ghostManager.checkCollisions(this.pacman.getPosition());
+        
+        if (collision === 'eaten') {
+            this.score += CONFIG.GHOST_SCORE;
+            this.updateUI();
+        } else if (collision === 'kill') {
+            this.lives--;
+            this.updateUI();
+            
+            if (this.lives <= 0) {
+                this.gameOver = true;
+                this.gameRunning = false;
+                return;
+            }
+            
+            this.pacman.reset();
+            this.ghostManager.reset();
+        }
+        
+        // Проверка победы
+        if (this.dotsRemaining === 0) {
+            this.gameWon = true;
+            this.gameRunning = false;
+        }
+    }
+    
+    nextLevel() {
+        this.level++;
+        this.map.reset();
+        this.pacman.reset();
+        this.ghostManager.reset();
+        this.dotsRemaining = this.map.countDots();
+        this.updateUI();
+    }
+    
+    render() {
+        this.renderer.clear();
+        this.renderer.drawMap(this.map);
+        this.renderer.drawGhosts(
+            this.ghostManager.getAllPositions(),
+            this.ghostManager.getMode()
+        );
+        this.renderer.drawPacman(this.pacman);
+        this.renderer.update();
+        
+        if (this.gamePaused && !this.gameOver && !this.gameWon) {
+            this.renderer.drawOverlay('ПАУЗА', '#ffff00');
+        }
+        
+        if (this.gameOver) {
+            this.renderer.drawOverlay('GAME OVER', '#ff0000');
+        }
+        
+        if (this.gameWon) {
+            this.renderer.drawOverlay('ПОБЕДА!', '#00ff00');
+        }
+    }
+    
+    gameLoop() {
+        if (this.gameOver || this.gameWon) {
+            this.render();
+            return;
+        }
+        
+        if (!this.gameRunning) {
+            this.render();
+            return;
+        }
+        
+        if (this.renderer.frameCount % CONFIG.GAME_SPEED === 0) {
+            this.update();
+        }
+        
+        this.render();
+        this.animationFrame = requestAnimationFrame(() => this.gameLoop());
+    }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const game = new Game();
+    game.init();
+    
+    // Глобальные функции для кнопок
+    window.restartGame = () => game.init();
+    window.togglePause = () => game.togglePause();
+    window.setDirection = (dx, dy) => game.pacman.setDirection(dx, dy);
+    
+    // Мобильные кнопки управления
+    const btnUp = document.getElementById('btnUp');
+    const btnDown = document.getElementById('btnDown');
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    
+    if (btnUp) {
+        btnUp.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            game.pacman.setDirection(0, -1);
+        });
+        btnUp.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            game.pacman.setDirection(0, -1);
+        });
+    }
+    
+    if (btnDown) {
+        btnDown.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            game.pacman.setDirection(0, 1);
+        });
+        btnDown.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            game.pacman.setDirection(0, 1);
+        });
+    }
+    
+    if (btnLeft) {
+        btnLeft.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            game.pacman.setDirection(-1, 0);
+        });
+        btnLeft.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            game.pacman.setDirection(-1, 0);
+        });
+    }
+    
+    if (btnRight) {
+        btnRight.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            game.pacman.setDirection(1, 0);
+        });
+        btnRight.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            game.pacman.setDirection(1, 0);
+        });
+    }
+});</script>
+{% endraw %}
+{% endblock %}
