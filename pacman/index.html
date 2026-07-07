@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>👻 Pac-Man</title>
-    <link rel="stylesheet" href="pacman.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="game-wrapper">
@@ -25,18 +25,24 @@
             </div>
             
             <div class="mobile-controls">
-                <button class="ctrl-btn up-btn" ontouchstart="setDirection(0,-1)" onmousedown="setDirection(0,-1)">▲</button>
+                <button class="ctrl-btn up-btn" onmousedown="setDirection(0,-1)">▲</button>
                 <div class="mid-row">
-                    <button class="ctrl-btn left-btn" ontouchstart="setDirection(-1,0)" onmousedown="setDirection(-1,0)">◀</button>
-                    <button class="ctrl-btn right-btn" ontouchstart="setDirection(1,0)" onmousedown="setDirection(1,0)">▶</button>
+                    <button class="ctrl-btn left-btn" onmousedown="setDirection(-1,0)">◀</button>
+                    <button class="ctrl-btn right-btn" onmousedown="setDirection(1,0)">▶</button>
                 </div>
-                <button class="ctrl-btn down-btn" ontouchstart="setDirection(0,1)" onmousedown="setDirection(0,1)">▼</button>
+                <button class="ctrl-btn down-btn" onmousedown="setDirection(0,1)">▼</button>
             </div>
             
             <p class="controls-hint">💡 Стрелки/WASD — движение | Пробел — пауза</p>
         </div>
     </div>
     
-    <script src="pacman.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/pacman.js"></script>
+    <script src="js/ghosts.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
