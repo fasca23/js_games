@@ -13,6 +13,7 @@ class Game {
         this.lives = CONFIG.INITIAL_LIVES;
         this.survivalTime = 0;
         this.bestScore = 0;
+        this.autoFire = false;
         this.timerInterval = null;
         this.gameRunning = false;
         this.gamePaused = false;
@@ -21,12 +22,12 @@ class Game {
         
         this.keys = {
             ArrowLeft: false,
-            ArrowRight: false,
-            Space: false
+            ArrowRight: false
         };
         
         this.uiScore = document.getElementById('scoreValue');
         this.uiLives = document.getElementById('livesValue');
+        this.uiEnemies = document.getElementById('enemiesValue');
         this.uiWave = document.getElementById('waveValue');
         this.uiTime = document.getElementById('timeValue');
         this.uiPause = document.getElementById('pauseBtn');
@@ -43,10 +44,12 @@ class Game {
         this.lives = CONFIG.INITIAL_LIVES;
         this.survivalTime = 0;
         this.bestScore = parseInt(localStorage.getItem('spaceinvaders_best_score') || 0);
+        this.autoFire = false;
         this.gameRunning = true;
         this.gamePaused = false;
         this.gameOver = false;
         
+        this.updateFireButton();
         this.startTimer();
         this.updateUI();
         
@@ -82,28 +85,37 @@ class Game {
         if (this.uiWave) this.uiWave.textContent = this.aliens.getWave();
     }
     
+    updateFireButton() {
+        const btnFire = document.getElementById('btnFire');
+        if (btnFire) {
+            if (this.autoFire) {
+                btnFire.textContent = '🔫 ОГОНЬ!';
+                btnFire.classList.add('firing');
+            } else {
+                btnFire.textContent = '🔫';
+                btnFire.classList.remove('firing');
+            }
+        }
+    }
+    
     saveRecords() {
         this.stopTimer();
         
-        // Сохраняем время
         const savedTime = localStorage.getItem('spaceinvaders_best_time') || 0;
         if (this.survivalTime > savedTime) {
             localStorage.setItem('spaceinvaders_best_time', this.survivalTime);
         }
         
-        // Сохраняем счёт
         const savedScore = localStorage.getItem('spaceinvaders_best_score') || 0;
         if (this.score > savedScore) {
             localStorage.setItem('spaceinvaders_best_score', this.score);
         }
         
-        // Сохраняем волну
         const savedWave = localStorage.getItem('spaceinvaders_best_wave') || 0;
         if (this.aliens.getWave() > savedWave) {
             localStorage.setItem('spaceinvaders_best_wave', this.aliens.getWave());
         }
         
-        // Обновляем отображение
         this.updateRecordsDisplay();
     }
     
@@ -133,13 +145,17 @@ class Game {
             
             if (e.key === 'ArrowLeft') { this.keys.ArrowLeft = true; e.preventDefault(); }
             if (e.key === 'ArrowRight') { this.keys.ArrowRight = true; e.preventDefault(); }
-            if (e.key === ' ' || e.key === 'Space') { this.keys.Space = true; e.preventDefault(); }
+            
+            if (e.key === ' ' || e.key === 'Space') {
+                this.autoFire = !this.autoFire;
+                this.updateFireButton();
+                e.preventDefault();
+            }
         });
         
         window.addEventListener('keyup', (e) => {
             if (e.key === 'ArrowLeft') { this.keys.ArrowLeft = false; e.preventDefault(); }
             if (e.key === 'ArrowRight') { this.keys.ArrowRight = false; e.preventDefault(); }
-            if (e.key === ' ' || e.key === 'Space') { this.keys.Space = false; e.preventDefault(); }
         });
     }
     
@@ -159,7 +175,8 @@ class Game {
         
         this.player.update();
         
-        if (this.keys.Space) {
+        // Автострельба или ручная
+        if (this.autoFire) {
             this.bullets.playerShoot(this.player.x, this.player.y);
         }
         
@@ -190,6 +207,8 @@ class Game {
                 if (this.lives <= 0) {
                     this.gameOver = true;
                     this.gameRunning = false;
+                    this.autoFire = false;
+                    this.updateFireButton();
                     this.saveRecords();
                     return;
                 }
@@ -199,6 +218,8 @@ class Game {
         if (this.aliens.reachedPlayer(this.player.y)) {
             this.gameOver = true;
             this.gameRunning = false;
+            this.autoFire = false;
+            this.updateFireButton();
             this.saveRecords();
             return;
         }

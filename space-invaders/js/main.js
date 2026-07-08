@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const game = new Game();
     game.init();
     
-    // Отображаем все рекорды
     game.updateRecordsDisplay();
     
     window.restartGame = () => game.init();
@@ -13,36 +12,71 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRight = document.getElementById('btnRight');
     const btnFire = document.getElementById('btnFire');
     
-    if (btnLeft) {
-        btnLeft.addEventListener('touchstart', (e) => {
+    function addMoveButton(btn, key) {
+        if (!btn) return;
+        
+        btn.style.touchAction = 'none';
+        
+        btn.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            game.keys.ArrowLeft = true;
+            e.stopPropagation();
+            game.keys[key] = true;
+        }, { passive: false });
+        
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            game.keys[key] = false;
+        }, { passive: false });
+        
+        btn.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            game.keys[key] = false;
+        }, { passive: false });
+        
+        btn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            game.keys[key] = true;
         });
-        btnLeft.addEventListener('touchend', (e) => {
+        
+        btn.addEventListener('mouseup', (e) => {
             e.preventDefault();
-            game.keys.ArrowLeft = false;
+            e.stopPropagation();
+            game.keys[key] = false;
+        });
+        
+        btn.addEventListener('mouseleave', (e) => {
+            game.keys[key] = false;
         });
     }
     
-    if (btnRight) {
-        btnRight.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            game.keys.ArrowRight = true;
-        });
-        btnRight.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            game.keys.ArrowRight = false;
-        });
-    }
+    addMoveButton(btnLeft, 'ArrowLeft');
+    addMoveButton(btnRight, 'ArrowRight');
     
+    // Кнопка огня
     if (btnFire) {
-        btnFire.addEventListener('touchstart', (e) => {
+        btnFire.style.touchAction = 'none';
+        
+        const toggleFire = (e) => {
             e.preventDefault();
-            game.keys.Space = true;
-        });
-        btnFire.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            game.keys.Space = false;
-        });
+            e.stopPropagation();
+            game.autoFire = !game.autoFire;
+            game.updateFireButton();
+        };
+        
+        btnFire.addEventListener('touchstart', toggleFire, { passive: false });
+        btnFire.addEventListener('click', toggleFire);
+    }
+    
+    // Предотвращаем скролл на кнопках
+    const gameWrapper = document.querySelector('.game-wrapper');
+    if (gameWrapper) {
+        gameWrapper.addEventListener('touchmove', (e) => {
+            if (e.target.closest('.control-btn')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
     }
 });
