@@ -2,6 +2,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const game = new Game();
     game.init();
     
+    // Загружаем рекорд из LocalStorage
+    const highscoreValue = document.getElementById('highscoreValue');
+    const savedHighscore = localStorage.getItem('pacman_highscore') || 0;
+    if (highscoreValue) {
+        highscoreValue.textContent = savedHighscore;
+    }
+    
     // Глобальные функции для кнопок
     window.restartGame = () => game.init();
     window.togglePause = () => game.togglePause();

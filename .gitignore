@@ -3,3 +3,4 @@ print_files.sh
 output.txt
 index_bundle.html
 package-lock.json
+pacman_template_bundle.html

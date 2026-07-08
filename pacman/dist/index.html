@@ -9,6 +9,7 @@
 <body>
     <div class="game-wrapper">
         <h1>👻 Pac-Man</h1>
+        <div class="highscore-bar">🏆 Рекорд: <span id="highscoreValue">0</span></div>
         
         <div class="game-container">
             <canvas id="gameCanvas"></canvas>
@@ -24,7 +25,6 @@
                 <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸️ Пауза</button>
             </div>
             
-            <!-- Мобильные кнопки управления -->
             <div class="mobile-controls">
                 <div class="control-row">
                     <button class="control-btn" id="btnUp">▲</button>

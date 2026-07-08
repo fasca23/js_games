@@ -55,6 +55,17 @@ class Game {
         if (this.uiLevel) this.uiLevel.textContent = this.level;
     }
     
+    saveHighscore() {
+        const savedHighscore = localStorage.getItem('pacman_highscore') || 0;
+        if (this.score > savedHighscore) {
+            localStorage.setItem('pacman_highscore', this.score);
+            const highscoreValue = document.getElementById('highscoreValue');
+            if (highscoreValue) {
+                highscoreValue.textContent = this.score;
+            }
+        }
+    }
+    
     setupControls() {
         window.addEventListener('keydown', (e) => {
             if (!this.gameRunning) {
@@ -128,6 +139,7 @@ class Game {
             if (this.lives <= 0) {
                 this.gameOver = true;
                 this.gameRunning = false;
+                this.saveHighscore();
                 return;
             }
             
@@ -139,6 +151,7 @@ class Game {
         if (this.dotsRemaining === 0) {
             this.gameWon = true;
             this.gameRunning = false;
+            this.saveHighscore();
         }
     }
     
