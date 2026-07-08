@@ -89,10 +89,8 @@ class Game {
         const btnFire = document.getElementById('btnFire');
         if (btnFire) {
             if (this.autoFire) {
-                btnFire.textContent = '🔫 ОГОНЬ!';
                 btnFire.classList.add('firing');
             } else {
-                btnFire.textContent = '🔫';
                 btnFire.classList.remove('firing');
             }
         }
