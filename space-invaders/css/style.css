@@ -76,6 +76,14 @@ h1 {
     font-weight: bold;
 }
 
+.stat-label {
+    display: inline;
+}
+
+.stat-icon {
+    display: inline;
+}
+
 .game-buttons {
     display: flex;
     gap: 10px;
@@ -184,5 +192,14 @@ h1 {
     
     .mobile-controls {
         display: block;
+    }
+    
+    /* Скрываем текст на мобилках, оставляем иконки и цифры */
+    .stat-label {
+        display: none;
+    }
+    
+    .stat {
+        font-size: 16px;
     }
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Сборщик Space Invaders игры.
+Сборщик игры Вторжение.
 Собирает все JS и CSS файлы.
 Режимы:
   python build.py          - сборка в 3 файла (dist/)
@@ -105,13 +105,18 @@ def build_three_files():
 <body>
     <div class="game-wrapper">
         <h1>👾 Вторжение</h1>
-        <div class="highscore-bar">🏆 Рекорд: <span id="highscoreValue">0</span></div>
+        <div class="records-bar">
+            ⏱️ <span id="bestTimeValue">0с</span> | 
+            🔫 <span id="bestScoreValue">0</span> | 
+            🌊 <span id="bestWaveValue">0</span>
+        </div>
         <div class="game-container">
             <canvas id="gameCanvas"></canvas>
             <div class="stats-row">
-                <div class="stat">🔫 Счёт: <span id="scoreValue">0</span></div>
-                <div class="stat">❤️ Жизни: <span id="livesValue">3</span></div>
-                <div class="stat">👾 Врагов: <span id="enemiesValue">0</span></div>
+                <div class="stat"><span class="stat-icon">🔫</span> <span class="stat-label">Счёт:</span> <span id="scoreValue">0</span></div>
+                <div class="stat"><span class="stat-icon">❤️</span> <span class="stat-label">Жизни:</span> <span id="livesValue">3</span></div>
+                <div class="stat"><span class="stat-icon">🌊</span> <span class="stat-label">Волна:</span> <span id="waveValue">1</span></div>
+                <div class="stat"><span class="stat-icon">⏱️</span> <span id="timeValue">0с</span></div>
             </div>
             <div class="game-buttons">
                 <button class="restart-btn" onclick="restartGame()">🔄 Заново</button>
@@ -119,14 +124,12 @@ def build_three_files():
             </div>
             <div class="mobile-controls">
                 <div class="control-row">
-                    <button class="control-btn control-btn-wide" id="btnFire">🔫 ОГОНЬ</button>
-                </div>
-                <div class="control-row">
                     <button class="control-btn" id="btnLeft">◀</button>
+                    <button class="control-btn" id="btnFire">🔫</button>
                     <button class="control-btn" id="btnRight">▶</button>
                 </div>
             </div>
-            <p class="controls-hint">💡 Стрелки — движение | Пробел — стрельба</p>
+            <p class="controls-hint">💡 Стрелки — движение | Пробел/🔫 — огонь</p>
         </div>
     </div>
     <script src="game.js"></script>
@@ -137,7 +140,15 @@ def build_three_files():
     write_file('dist/game.js', minified_js)
     write_file('dist/index.html', html)
     
-    print(f"\n✅ Собрано в dist/: {len(minified_css) + len(minified_js) + len(html)} байт")
+    css_size = len(minified_css)
+    js_size = len(minified_js)
+    html_size = len(html)
+    
+    print(f"\n✅ Собрано в dist/:")
+    print(f"  📄 index.html: {html_size} байт")
+    print(f"  🎨 style.css: {css_size} байт")
+    print(f"  📦 game.js: {js_size} байт")
+    print(f"  📊 Всего: {css_size + js_size + html_size} байт")
 
 def build_single_file():
     print("📦 Сборка в 1 файл...")
@@ -183,15 +194,20 @@ def build_template():
 {% block content %}
 <div class="game-wrapper">
     <h1>👾 Вторжение</h1>
-    <div class="highscore-bar">🏆 Рекорд: <span id="highscoreValue">0</span></div>
+    <div class="records-bar">
+        ⏱️ <span id="bestTimeValue">0с</span> | 
+        🔫 <span id="bestScoreValue">0</span> | 
+        🌊 <span id="bestWaveValue">0</span>
+    </div>
     
     <div class="game-container">
         <canvas id="gameCanvas"></canvas>
         
         <div class="stats-row">
-            <div class="stat">🔫 Счёт: <span id="scoreValue">0</span></div>
-            <div class="stat">❤️ Жизни: <span id="livesValue">3</span></div>
-            <div class="stat">👾 Врагов: <span id="enemiesValue">0</span></div>
+            <div class="stat"><span class="stat-icon">🔫</span> <span class="stat-label">Счёт:</span> <span id="scoreValue">0</span></div>
+            <div class="stat"><span class="stat-icon">❤️</span> <span class="stat-label">Жизни:</span> <span id="livesValue">3</span></div>
+            <div class="stat"><span class="stat-icon">🌊</span> <span class="stat-label">Волна:</span> <span id="waveValue">1</span></div>
+            <div class="stat"><span class="stat-icon">⏱️</span> <span id="timeValue">0с</span></div>
         </div>
         
         <div class="game-buttons">
@@ -201,15 +217,13 @@ def build_template():
         
         <div class="mobile-controls">
             <div class="control-row">
-                <button class="control-btn control-btn-wide" id="btnFire">🔫 ОГОНЬ</button>
-            </div>
-            <div class="control-row">
                 <button class="control-btn" id="btnLeft">◀</button>
+                <button class="control-btn" id="btnFire">🔫</button>
                 <button class="control-btn" id="btnRight">▶</button>
             </div>
         </div>
         
-        <p class="controls-hint">💡 Стрелки — движение | Пробел — стрельба</p>
+        <p class="controls-hint">💡 Стрелки — движение | Пробел/🔫 — огонь</p>
     </div>
     
     <a href="/projects" class="back-link">← Назад к проектам</a>
@@ -223,12 +237,12 @@ def build_template():
     template = template.replace('CUSTOM_CSS', minified_css)
     template = template.replace('CUSTOM_JS', combined_js)
     
-    write_file('space_invaders_template_bundle.html', template)
-    print(f"\n✅ Собрано в space_invaders_template_bundle.html")
+    write_file('invasion_template_bundle.html', template)
+    print(f"\n✅ Собрано в invasion_template_bundle.html")
 
 def show_help():
     print("""
-🔧 Сборщик Space Invaders
+🔧 Сборщик Вторжение
 
 Использование:
   python build.py          - сборка в 3 файла (dist/)
