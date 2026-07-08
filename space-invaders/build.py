@@ -99,12 +99,12 @@ def build_three_files():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>👾 Space Invaders</title>
+    <title>👾 Вторжение пришельцев</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="game-wrapper">
-        <h1>👾 Space Invaders</h1>
+        <h1>👾 Вторжение пришельцев</h1>
         <div class="highscore-bar">🏆 Рекорд: <span id="highscoreValue">0</span></div>
         <div class="game-container">
             <canvas id="gameCanvas"></canvas>
@@ -174,7 +174,7 @@ def build_template():
     
     template = """{% extends "base.html" %}
 
-{% block title %}👾 Space Invaders — Классическая аркада{% endblock %}
+{% block title %}👾 Вторжение пришельцев — Классическая аркада{% endblock %}
 
 {% block extra_head %}
 <style>CUSTOM_CSS</style>
@@ -182,7 +182,7 @@ def build_template():
 
 {% block content %}
 <div class="game-wrapper">
-    <h1>👾 Space Invaders</h1>
+    <h1>👾 Вторжение пришельцев</h1>
     <div class="highscore-bar">🏆 Рекорд: <span id="highscoreValue">0</span></div>
     
     <div class="game-container">

@@ -31,13 +31,17 @@ h1 {
     text-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
 }
 
-.highscore-bar {
+.records-bar {
     text-align: center;
     color: #ffd700;
-    font-size: 18px;
+    font-size: 16px;
     margin-bottom: 10px;
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
     font-weight: bold;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
 }
 
 .game-container {

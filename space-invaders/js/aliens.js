@@ -23,7 +23,9 @@ class AlienArmy {
         this.aliens = [];
         this.direction = 1;
         this.stepDelay = 0;
-        this.currentStepFrames = CONFIG.ALIEN_STEP_DELAY;
+        this.baseStepFrames = CONFIG.ALIEN_STEP_DELAY;
+        this.currentStepFrames = this.baseStepFrames;
+        this.wave = 1;
         this.reset();
     }
     
@@ -40,7 +42,19 @@ class AlienArmy {
         }
         this.direction = 1;
         this.stepDelay = 0;
-        this.currentStepFrames = CONFIG.ALIEN_STEP_DELAY;
+        this.currentStepFrames = this.baseStepFrames;
+    }
+    
+    nextWave() {
+        this.wave++;
+        this.reset();
+        // Ускорение с каждой волной: -3 кадра, минимум 5
+        this.baseStepFrames = Math.max(5, CONFIG.ALIEN_STEP_DELAY - (this.wave - 1) * 3);
+        this.currentStepFrames = this.baseStepFrames;
+    }
+    
+    getWave() {
+        return this.wave;
     }
     
     update() {
@@ -64,7 +78,8 @@ class AlienArmy {
                 for (const alien of alive) {
                     alien.y += 12;
                 }
-                this.currentStepFrames = Math.max(12, this.currentStepFrames - 2);
+                // Дополнительное ускорение при смене направления
+                this.currentStepFrames = Math.max(5, this.currentStepFrames - 1);
             } else {
                 for (const alien of alive) {
                     alien.x += CONFIG.ALIEN_WIDTH * 0.28 * this.direction;

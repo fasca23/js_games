@@ -2,14 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const game = new Game();
     game.init();
     
-    // Загружаем рекорд
-    const highscoreValue = document.getElementById('highscoreValue');
-    const savedTime = localStorage.getItem('spaceinvaders_best_time') || 0;
-    if (highscoreValue) {
-        highscoreValue.textContent = savedTime + 'с';
-    }
+    // Отображаем все рекорды
+    game.updateRecordsDisplay();
     
-    // Глобальные функции
     window.restartGame = () => game.init();
     window.togglePause = () => game.togglePause();
     
