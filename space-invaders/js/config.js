@@ -27,6 +27,8 @@ const CONFIG = {
     ALIEN_SHOOT_DELAY: 35,
     
     INVINCIBLE_FRAMES: 45,
+
+    INITIAL_LIVES: 3,
     
     COLORS: {
         BG: '#020218',

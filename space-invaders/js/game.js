@@ -10,7 +10,9 @@ class Game {
         this.bullets = new BulletManager();
         
         this.score = 0;
-        this.lives = 3;
+        this.lives = CONFIG.INITIAL_LIVES;
+        this.survivalTime = 0;
+        this.timerInterval = null;
         this.gameRunning = false;
         this.gamePaused = false;
         this.gameOver = false;
@@ -26,6 +28,7 @@ class Game {
         this.uiScore = document.getElementById('scoreValue');
         this.uiLives = document.getElementById('livesValue');
         this.uiEnemies = document.getElementById('enemiesValue');
+        this.uiTime = document.getElementById('timeValue');
         this.uiPause = document.getElementById('pauseBtn');
         
         this.setupControls();
@@ -37,18 +40,38 @@ class Game {
         this.bullets.reset();
         
         this.score = 0;
-        this.lives = 3;
+        this.lives = CONFIG.INITIAL_LIVES;
+        this.survivalTime = 0;
         this.gameRunning = true;
         this.gamePaused = false;
         this.gameOver = false;
         this.gameWon = false;
         
+        this.startTimer();
         this.updateUI();
         
         if (this.uiPause) this.uiPause.textContent = '⏸️ Пауза';
+        if (this.uiTime) this.uiTime.textContent = '0с';
         
         if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
         this.gameLoop();
+    }
+    
+    startTimer() {
+        this.stopTimer();
+        this.timerInterval = setInterval(() => {
+            if (this.gameRunning && !this.gamePaused && !this.gameOver && !this.gameWon) {
+                this.survivalTime++;
+                if (this.uiTime) this.uiTime.textContent = this.survivalTime + 'с';
+            }
+        }, 1000);
+    }
+    
+    stopTimer() {
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
     }
     
     updateUI() {
@@ -58,17 +81,18 @@ class Game {
     }
     
     saveHighscore() {
-        const saved = localStorage.getItem('spaceinvaders_highscore') || 0;
-        if (this.score > saved) {
-            localStorage.setItem('spaceinvaders_highscore', this.score);
+        this.stopTimer();
+        const saved = localStorage.getItem('spaceinvaders_best_time') || 0;
+        if (this.survivalTime > saved) {
+            localStorage.setItem('spaceinvaders_best_time', this.survivalTime);
             const el = document.getElementById('highscoreValue');
-            if (el) el.textContent = this.score;
+            if (el) el.textContent = this.survivalTime + 'с';
         }
     }
     
     setupControls() {
         window.addEventListener('keydown', (e) => {
-            if (!this.gameRunning) {
+            if (!this.gameRunning && !this.gameOver && !this.gameWon) {
                 if (e.key === ' ' || e.key === 'Enter') {
                     this.init();
                     e.preventDefault();
@@ -155,11 +179,12 @@ class Game {
             return;
         }
         
-        // Все пришельцы уничтожены
+        // Все пришельцы уничтожены - новая волна
         if (this.aliens.count() === 0) {
-            this.gameWon = true;
-            this.gameRunning = false;
-            this.saveHighscore();
+            this.aliens.reset();
+            this.bullets.alienBullets = [];
+            // Бонус за волну
+            this.score += 100;
         }
         
         this.updateUI();

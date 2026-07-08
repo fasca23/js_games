@@ -4,9 +4,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Загружаем рекорд
     const highscoreValue = document.getElementById('highscoreValue');
-    const savedHighscore = localStorage.getItem('spaceinvaders_highscore') || 0;
+    const savedTime = localStorage.getItem('spaceinvaders_best_time') || 0;
     if (highscoreValue) {
-        highscoreValue.textContent = savedHighscore;
+        highscoreValue.textContent = savedTime + 'с';
     }
     
     // Глобальные функции
