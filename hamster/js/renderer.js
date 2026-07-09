@@ -69,10 +69,44 @@ class Renderer {
         const gx = ghost.x * this.cellSize + this.cellSize / 2;
         const gy = ghost.y * this.cellSize + this.cellSize / 2;
         
-        this.ctx.shadowColor = CONFIG.COLORS.GHOST_GLOW;
+        // Отрисовка следа змейки
+        if (ghost.type === 'snake' && ghost.trail && ghost.trail.length > 0) {
+            this.ctx.fillStyle = 'rgba(255, 100, 100, 0.3)';
+            for (const trail of ghost.trail) {
+                this.ctx.fillRect(
+                    trail.x * this.cellSize + this.cellSize * 0.3,
+                    trail.y * this.cellSize + this.cellSize * 0.3,
+                    this.cellSize * 0.4,
+                    this.cellSize * 0.4
+                );
+            }
+        }
+        
+        // Цвет в зависимости от типа
+        let color, glowColor;
+        switch(ghost.type) {
+            case 'chaser':
+                color = CONFIG.COLORS.GHOST_CHASER;
+                glowColor = CONFIG.COLORS.GHOST_GLOW;
+                break;
+            case 'patrol':
+                color = '#ffaa00';
+                glowColor = '#ffaa00';
+                break;
+            case 'snake':
+                color = '#cc44cc';
+                glowColor = '#cc44cc';
+                break;
+            default:
+                color = CONFIG.COLORS.GHOST_RANDOM;
+                glowColor = CONFIG.COLORS.GHOST_GLOW;
+        }
+        
+        this.ctx.shadowColor = glowColor;
         this.ctx.shadowBlur = 15;
         
-        this.ctx.fillStyle = ghost.type === 'chaser' ? CONFIG.COLORS.GHOST_CHASER : CONFIG.COLORS.GHOST_RANDOM;
+        // Тело призрака
+        this.ctx.fillStyle = color;
         this.ctx.beginPath();
         this.ctx.arc(gx, gy - this.cellSize * 0.1, this.cellSize * 0.35, Math.PI, 0);
         this.ctx.lineTo(gx + this.cellSize * 0.35, gy + this.cellSize * 0.3);
@@ -87,7 +121,6 @@ class Renderer {
         
         this.ctx.closePath();
         this.ctx.fill();
-        
         this.ctx.shadowBlur = 0;
         
         // Глаза
@@ -99,6 +132,7 @@ class Renderer {
         this.ctx.arc(gx + this.cellSize * 0.12, gy - this.cellSize * 0.15, this.cellSize * 0.08, 0, Math.PI * 2);
         this.ctx.fill();
         
+        // Зрачки
         this.ctx.fillStyle = 'black';
         this.ctx.beginPath();
         this.ctx.arc(gx - this.cellSize * 0.1, gy - this.cellSize * 0.15, this.cellSize * 0.04, 0, Math.PI * 2);
@@ -130,6 +164,7 @@ class Renderer {
         this.ctx.arc(hx + this.cellSize * 0.2, hy - this.cellSize * 0.3, this.cellSize * 0.13, 0, Math.PI * 2);
         this.ctx.fill();
         
+        // Внутренняя часть ушей
         this.ctx.fillStyle = CONFIG.COLORS.HAMSTER_FACE;
         this.ctx.beginPath();
         this.ctx.arc(hx - this.cellSize * 0.2, hy - this.cellSize * 0.3, this.cellSize * 0.07, 0, Math.PI * 2);
@@ -161,6 +196,7 @@ class Renderer {
         this.ctx.arc(hx + this.cellSize * 0.1, hy - this.cellSize * 0.05, this.cellSize * 0.06, 0, Math.PI * 2);
         this.ctx.fill();
         
+        // Блики в глазах
         this.ctx.fillStyle = 'white';
         this.ctx.beginPath();
         this.ctx.arc(hx - this.cellSize * 0.08, hy - this.cellSize * 0.07, this.cellSize * 0.025, 0, Math.PI * 2);

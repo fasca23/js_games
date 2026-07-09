@@ -33,14 +33,22 @@ class Hamster {
         
         if (newX < 0 || newX >= CONFIG.COLS || newY < 0 || newY >= CONFIG.ROWS) return null;
         
-        // Возвращение на территорию
+        // Возвращение на территорию - захват области
         if (this.isOutside && grid.isCaptured(newX, newY)) {
             this.x = newX;
             this.y = newY;
-            const captured = grid.captureArea(this.path);
+            
+            // Захватываем замкнутую область
+            const result = grid.captureEnclosedArea(this.path);
+            
             this.path = [];
             this.isOutside = false;
-            return { type: 'capture', count: captured };
+            
+            return { 
+                type: 'capture', 
+                count: result.captured,
+                killedGhosts: result.killedGhosts 
+            };
         }
         
         // Выход с территории

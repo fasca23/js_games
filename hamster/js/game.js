@@ -31,7 +31,6 @@ class Game {
         this.grid.reset();
         this.hamster.reset();
         
-        // Стартовая клетка
         this.grid.capture(this.hamster.x, this.hamster.y);
         
         this.ghostManager.reset(this.hamster.x, this.hamster.y, this.grid);
@@ -152,7 +151,7 @@ class Game {
     resetHamster() {
         const spots = this.grid.findSafeSpot(
             this.ghostManager.getAll(),
-            this.hamster.x, this.hamster.y, 2
+            2
         );
         
         if (spots.length > 0) {
