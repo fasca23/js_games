@@ -68,16 +68,17 @@ class Renderer {
     drawGhost(ghost) {
         const gx = ghost.x * this.cellSize + this.cellSize / 2;
         const gy = ghost.y * this.cellSize + this.cellSize / 2;
+        const size = this.cellSize * CONFIG.GHOST_SIZE;
         
         // Отрисовка следа змейки
         if (ghost.type === 'snake' && ghost.trail && ghost.trail.length > 0) {
-            this.ctx.fillStyle = 'rgba(255, 100, 100, 0.3)';
+            this.ctx.fillStyle = 'rgba(255, 100, 100, 0.35)';
             for (const trail of ghost.trail) {
                 this.ctx.fillRect(
-                    trail.x * this.cellSize + this.cellSize * 0.3,
-                    trail.y * this.cellSize + this.cellSize * 0.3,
-                    this.cellSize * 0.4,
-                    this.cellSize * 0.4
+                    trail.x * this.cellSize + this.cellSize * 0.25,
+                    trail.y * this.cellSize + this.cellSize * 0.25,
+                    this.cellSize * 0.5,
+                    this.cellSize * 0.5
                 );
             }
         }
@@ -108,15 +109,15 @@ class Renderer {
         // Тело призрака
         this.ctx.fillStyle = color;
         this.ctx.beginPath();
-        this.ctx.arc(gx, gy - this.cellSize * 0.1, this.cellSize * 0.35, Math.PI, 0);
-        this.ctx.lineTo(gx + this.cellSize * 0.35, gy + this.cellSize * 0.3);
+        this.ctx.arc(gx, gy - size * 0.25, size, Math.PI, 0);
+        this.ctx.lineTo(gx + size, gy + size * 0.6);
         
         const waves = 3;
-        const waveWidth = (this.cellSize * 0.7) / waves;
+        const waveWidth = (size * 2) / waves;
         for (let i = 0; i < waves; i++) {
-            const wx = gx - this.cellSize * 0.35 + i * waveWidth;
-            this.ctx.lineTo(wx + waveWidth / 2, gy + this.cellSize * 0.1);
-            this.ctx.lineTo(wx + waveWidth, gy + this.cellSize * 0.3);
+            const wx = gx - size + i * waveWidth;
+            this.ctx.lineTo(wx + waveWidth / 2, gy + size * 0.25);
+            this.ctx.lineTo(wx + waveWidth, gy + size * 0.6);
         }
         
         this.ctx.closePath();
@@ -124,85 +125,91 @@ class Renderer {
         this.ctx.shadowBlur = 0;
         
         // Глаза
+        const eyeSize = this.cellSize * CONFIG.EYE_SIZE;
+        const pupilSize = this.cellSize * CONFIG.PUPIL_SIZE;
+        
         this.ctx.fillStyle = 'white';
         this.ctx.beginPath();
-        this.ctx.arc(gx - this.cellSize * 0.12, gy - this.cellSize * 0.15, this.cellSize * 0.08, 0, Math.PI * 2);
+        this.ctx.arc(gx - size * 0.35, gy - size * 0.3, eyeSize, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.beginPath();
-        this.ctx.arc(gx + this.cellSize * 0.12, gy - this.cellSize * 0.15, this.cellSize * 0.08, 0, Math.PI * 2);
+        this.ctx.arc(gx + size * 0.35, gy - size * 0.3, eyeSize, 0, Math.PI * 2);
         this.ctx.fill();
         
         // Зрачки
         this.ctx.fillStyle = 'black';
         this.ctx.beginPath();
-        this.ctx.arc(gx - this.cellSize * 0.1, gy - this.cellSize * 0.15, this.cellSize * 0.04, 0, Math.PI * 2);
+        this.ctx.arc(gx - size * 0.3, gy - size * 0.3, pupilSize, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.beginPath();
-        this.ctx.arc(gx + this.cellSize * 0.14, gy - this.cellSize * 0.15, this.cellSize * 0.04, 0, Math.PI * 2);
+        this.ctx.arc(gx + size * 0.4, gy - size * 0.3, pupilSize, 0, Math.PI * 2);
         this.ctx.fill();
     }
     
     drawHamster(hamster) {
         const hx = hamster.x * this.cellSize + this.cellSize / 2;
         const hy = hamster.y * this.cellSize + this.cellSize / 2;
+        const size = this.cellSize * CONFIG.HAMSTER_SIZE;
         
         this.ctx.shadowColor = '#ffaa00';
-        this.ctx.shadowBlur = 12;
+        this.ctx.shadowBlur = 15;
         
         // Тело
         this.ctx.fillStyle = CONFIG.COLORS.HAMSTER;
         this.ctx.beginPath();
-        this.ctx.arc(hx, hy, this.cellSize * 0.35, 0, Math.PI * 2);
+        this.ctx.arc(hx, hy, size, 0, Math.PI * 2);
         this.ctx.fill();
         
         // Уши
+        const earSize = size * 0.4;
         this.ctx.fillStyle = CONFIG.COLORS.HAMSTER_EAR;
         this.ctx.beginPath();
-        this.ctx.arc(hx - this.cellSize * 0.2, hy - this.cellSize * 0.3, this.cellSize * 0.13, 0, Math.PI * 2);
+        this.ctx.arc(hx - size * 0.55, hy - size * 0.8, earSize, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.beginPath();
-        this.ctx.arc(hx + this.cellSize * 0.2, hy - this.cellSize * 0.3, this.cellSize * 0.13, 0, Math.PI * 2);
+        this.ctx.arc(hx + size * 0.55, hy - size * 0.8, earSize, 0, Math.PI * 2);
         this.ctx.fill();
         
         // Внутренняя часть ушей
         this.ctx.fillStyle = CONFIG.COLORS.HAMSTER_FACE;
         this.ctx.beginPath();
-        this.ctx.arc(hx - this.cellSize * 0.2, hy - this.cellSize * 0.3, this.cellSize * 0.07, 0, Math.PI * 2);
+        this.ctx.arc(hx - size * 0.55, hy - size * 0.8, earSize * 0.55, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.beginPath();
-        this.ctx.arc(hx + this.cellSize * 0.2, hy - this.cellSize * 0.3, this.cellSize * 0.07, 0, Math.PI * 2);
+        this.ctx.arc(hx + size * 0.55, hy - size * 0.8, earSize * 0.55, 0, Math.PI * 2);
         this.ctx.fill();
         
         // Мордочка
         this.ctx.fillStyle = CONFIG.COLORS.HAMSTER_FACE;
         this.ctx.beginPath();
-        this.ctx.ellipse(hx, hy + this.cellSize * 0.05, this.cellSize * 0.18, this.cellSize * 0.13, 0, 0, Math.PI * 2);
+        this.ctx.ellipse(hx, hy + size * 0.15, size * 0.5, size * 0.35, 0, 0, Math.PI * 2);
         this.ctx.fill();
         
         // Нос
         this.ctx.fillStyle = CONFIG.COLORS.HAMSTER_NOSE;
         this.ctx.beginPath();
-        this.ctx.arc(hx, hy + this.cellSize * 0.03, this.cellSize * 0.05, 0, Math.PI * 2);
+        this.ctx.arc(hx, hy + size * 0.1, size * 0.15, 0, Math.PI * 2);
         this.ctx.fill();
         
         this.ctx.shadowBlur = 0;
         
         // Глаза
+        const eyeSize = size * 0.18;
         this.ctx.fillStyle = 'black';
         this.ctx.beginPath();
-        this.ctx.arc(hx - this.cellSize * 0.1, hy - this.cellSize * 0.05, this.cellSize * 0.06, 0, Math.PI * 2);
+        this.ctx.arc(hx - size * 0.3, hy - size * 0.15, eyeSize, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.beginPath();
-        this.ctx.arc(hx + this.cellSize * 0.1, hy - this.cellSize * 0.05, this.cellSize * 0.06, 0, Math.PI * 2);
+        this.ctx.arc(hx + size * 0.3, hy - size * 0.15, eyeSize, 0, Math.PI * 2);
         this.ctx.fill();
         
         // Блики в глазах
         this.ctx.fillStyle = 'white';
         this.ctx.beginPath();
-        this.ctx.arc(hx - this.cellSize * 0.08, hy - this.cellSize * 0.07, this.cellSize * 0.025, 0, Math.PI * 2);
+        this.ctx.arc(hx - size * 0.25, hy - size * 0.2, eyeSize * 0.4, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.beginPath();
-        this.ctx.arc(hx + this.cellSize * 0.12, hy - this.cellSize * 0.07, this.cellSize * 0.025, 0, Math.PI * 2);
+        this.ctx.arc(hx + size * 0.35, hy - size * 0.2, eyeSize * 0.4, 0, Math.PI * 2);
         this.ctx.fill();
     }
     

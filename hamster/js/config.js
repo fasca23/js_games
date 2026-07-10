@@ -1,17 +1,20 @@
 const CONFIG = {
-    COLS: 25,
-    ROWS: 25,
+    COLS: 19,
+    ROWS: 19,
     GAME_SPEED: 120,
     INITIAL_LIVES: 3,
     WIN_PERCENT: 80,
     
-    // Призраки
-    INITIAL_GHOSTS: 2,
-    MAX_GHOSTS: 5,
-    GHOST_SPEED_NORMAL: 1,
-    GHOST_SPEED_CHASER: 1.5,
+    // Размеры спрайтов (относительно cellSize)
+    HAMSTER_SIZE: 0.60,
+    GHOST_SIZE: 0.55,
+    EYE_SIZE: 0.12,
+    PUPIL_SIZE: 0.06,
     
-    // Пороги для добавления призраков
+    // Призраки
+    INITIAL_GHOSTS: 3,
+    MAX_GHOSTS: 5,
+    
     GHOST_THRESHOLD_1: 30,
     GHOST_THRESHOLD_2: 50,
     GHOST_THRESHOLD_3: 75,

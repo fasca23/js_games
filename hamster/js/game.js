@@ -127,7 +127,14 @@ class Game {
             }
         }
         
-        this.ghostManager.update(this.grid, this.hamster.x, this.hamster.y);
+        // Передаём isOutside и path в update
+        this.ghostManager.update(
+            this.grid, 
+            this.hamster.x, 
+            this.hamster.y, 
+            this.hamster.isOutside, 
+            this.hamster.path
+        );
         
         if (this.ghostManager.checkCollision(this.hamster.x, this.hamster.y)) {
             this.lives--;

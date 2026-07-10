@@ -5,8 +5,7 @@ class Ghost {
         this.dx = Math.random() > 0.5 ? 1 : -1;
         this.dy = 0;
         this.type = type;
-        this.trail = []; // след для змейки
-        this.trailTimer = 0;
+        this.trail = [];
         this.stunned = false;
         this.stunTimer = 0;
         
@@ -16,7 +15,7 @@ class Ghost {
         }
     }
     
-    move(grid, targetX, targetY) {
+    move(grid, targetX, targetY, hamsterIsOutside, hamsterPath) {
         if (this.stunned) {
             this.stunTimer--;
             if (this.stunTimer <= 0) this.stunned = false;
@@ -26,15 +25,15 @@ class Ghost {
         // Обновляем след змейки
         if (this.type === 'snake') {
             this.trail.push({ x: this.x, y: this.y });
-            if (this.trail.length > 15) this.trail.shift();
+            if (this.trail.length > 10) this.trail.shift();
         }
         
         switch(this.type) {
             case 'chaser':
-                this.moveChaser(grid, targetX, targetY);
+                this.moveChaser(grid, targetX, targetY, hamsterIsOutside);
                 break;
             case 'patrol':
-                this.movePatrol(grid);
+                this.movePatrol(grid, targetX, targetY, hamsterPath);
                 break;
             case 'snake':
                 this.moveSnake(grid, targetX, targetY);
@@ -42,38 +41,85 @@ class Ghost {
         }
     }
     
-    moveChaser(grid, targetX, targetY) {
-        // Преследует хомяка
-        if (Math.random() < 0.85) {
-            const dx = targetX - this.x;
-            const dy = targetY - this.y;
-            
-            if (Math.abs(dx) > Math.abs(dy)) {
-                this.dx = dx > 0 ? 1 : -1;
-                this.dy = 0;
+    moveChaser(grid, targetX, targetY, hamsterIsOutside) {
+        const dist = Math.hypot(targetX - this.x, targetY - this.y);
+        
+        if (hamsterIsOutside) {
+            // Хомяк снаружи - всегда преследуем, но с разной точностью
+            if (dist < 5) {
+                // Близко - агрессивно, 95% точность
+                if (Math.random() < 0.95) {
+                    this.moveToward(targetX, targetY);
+                }
+            } else if (dist < 12) {
+                // Средне - 80% точность
+                if (Math.random() < 0.8) {
+                    this.moveToward(targetX, targetY);
+                } else {
+                    this.randomDirection(grid);
+                }
             } else {
-                this.dy = dy > 0 ? 1 : -1;
-                this.dx = 0;
+                // Далеко - 60% точность
+                if (Math.random() < 0.6) {
+                    this.moveToward(targetX, targetY);
+                } else {
+                    this.randomDirection(grid);
+                }
             }
-        } else if (Math.random() < 0.3) {
-            // Иногда случайное движение
-            const dirs = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
-            const dir = dirs[Math.floor(Math.random() * dirs.length)];
-            this.dx = dir.dx;
-            this.dy = dir.dy;
+        } else {
+            // Хомяк на территории - патрулируем у границы
+            this.movePatrol(grid, targetX, targetY, []);
+            return;
         }
         
         this.applyMovement(grid);
     }
     
-    movePatrol(grid) {
-        // Патрулирует вдоль границы территории
+    moveToward(targetX, targetY) {
+        const dx = targetX - this.x;
+        const dy = targetY - this.y;
+        
+        if (Math.abs(dx) > Math.abs(dy)) {
+            this.dx = dx > 0 ? 1 : -1;
+            this.dy = 0;
+        } else {
+            this.dy = dy > 0 ? 1 : -1;
+            this.dx = 0;
+        }
+    }
+    
+    movePatrol(grid, targetX, targetY, hamsterPath) {
         const directions = [
             { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
             { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
         ];
         
-        // Предпочитает держаться рядом с границей территории
+        // Если хомяк прокладывает путь - пытаемся перехватить
+        if (hamsterPath && hamsterPath.length > 0) {
+            const lastPath = hamsterPath[hamsterPath.length - 1];
+            const distToPath = Math.hypot(lastPath.x - this.x, lastPath.y - this.y);
+            
+            if (distToPath < 5 && Math.random() < 0.7) {
+                const dx = lastPath.x - this.x;
+                const dy = lastPath.y - this.y;
+                
+                let dir;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    dir = { dx: dx > 0 ? 1 : -1, dy: 0 };
+                } else {
+                    dir = { dx: 0, dy: dy > 0 ? 1 : -1 };
+                }
+                
+                if (!grid.isCaptured(this.x + dir.dx, this.y + dir.dy)) {
+                    this.dx = dir.dx;
+                    this.dy = dir.dy;
+                    this.applyMovement(grid);
+                    return;
+                }
+            }
+        }
+        
+        // Обычное патрулирование вдоль границ
         let bestDir = { dx: this.dx, dy: this.dy };
         let bestScore = -Infinity;
         
@@ -85,14 +131,13 @@ class Ghost {
             
             if (grid.isCaptured(nx, ny)) continue;
             
-            // Считаем количество соседних захваченных клеток
             let capturedNeighbors = 0;
             for (const d of directions) {
                 if (grid.isCaptured(nx + d.dx, ny + d.dy)) capturedNeighbors++;
             }
             
-            // Патрульный любит границы (1-3 захваченных соседа)
-            const score = capturedNeighbors >= 1 && capturedNeighbors <= 3 ? 10 : 0;
+            const score = capturedNeighbors >= 1 && capturedNeighbors <= 2 ? 10 : 
+                         capturedNeighbors === 3 ? 5 : 0;
             
             if (score > bestScore) {
                 bestScore = score;
@@ -100,8 +145,7 @@ class Ghost {
             }
         }
         
-        if (bestScore === -Infinity) {
-            // Если нет хорошего направления, случайное
+        if (bestScore <= 0) {
             const freeDirs = directions.filter(d => !grid.isCaptured(this.x + d.dx, this.y + d.dy));
             if (freeDirs.length > 0) {
                 bestDir = freeDirs[Math.floor(Math.random() * freeDirs.length)];
@@ -114,27 +158,58 @@ class Ghost {
     }
     
     moveSnake(grid, targetX, targetY) {
-        // Оставляет след, преследует хомяка
-        if (Math.random() < 0.7) {
+        const dist = Math.hypot(targetX - this.x, targetY - this.y);
+        
+        if (dist < 6) {
+            if (Math.random() < 0.8) {
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    this.dx = 0;
+                    this.dy = Math.random() > 0.5 ? 1 : -1;
+                } else {
+                    this.dy = 0;
+                    this.dx = Math.random() > 0.5 ? 1 : -1;
+                }
+            } else {
+                this.randomDirection(grid);
+            }
+        } else if (Math.random() < 0.5) {
             const dx = targetX - this.x;
             const dy = targetY - this.y;
             
-            // Предпочитает двигаться перпендикулярно, чтобы отрезать путь
             if (Math.abs(dx) > Math.abs(dy)) {
-                this.dy = dy > 0 ? 1 : -1;
-                this.dx = 0;
-            } else {
                 this.dx = dx > 0 ? 1 : -1;
                 this.dy = 0;
+            } else {
+                this.dy = dy > 0 ? 1 : -1;
+                this.dx = 0;
             }
         } else {
-            const dirs = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
-            const dir = dirs[Math.floor(Math.random() * dirs.length)];
-            this.dx = dir.dx;
-            this.dy = dir.dy;
+            this.randomDirection(grid);
         }
         
         this.applyMovement(grid);
+    }
+    
+    randomDirection(grid) {
+        const dirs = [
+            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+        ];
+        
+        const freeDirs = dirs.filter(d => {
+            const nx = this.x + d.dx;
+            const ny = this.y + d.dy;
+            return !grid.isCaptured(nx, ny) && !(d.dx === -this.dx && d.dy === -this.dy);
+        });
+        
+        if (freeDirs.length > 0) {
+            const dir = freeDirs[Math.floor(Math.random() * freeDirs.length)];
+            this.dx = dir.dx;
+            this.dy = dir.dy;
+        }
     }
     
     applyMovement(grid) {
@@ -192,12 +267,8 @@ class GhostManager {
     
     reset(hamsterX, hamsterY, grid) {
         this.ghosts = [];
-        
-        // 1 преследователь
         this.addGhost(hamsterX, hamsterY, grid, 'chaser');
-        // 1 патрульный
         this.addGhost(hamsterX, hamsterY, grid, 'patrol');
-        // 1 змейка
         this.addGhost(hamsterX, hamsterY, grid, 'snake');
     }
     
@@ -207,10 +278,12 @@ class GhostManager {
         let gx, gy;
         let attempts = 0;
         do {
-            gx = Math.floor(Math.random() * (CONFIG.COLS - 4)) + 2;
-            gy = Math.floor(Math.random() * (CONFIG.ROWS - 4)) + 2;
+            gx = Math.floor(Math.random() * (CONFIG.COLS - 6)) + 3;
+            gy = Math.floor(Math.random() * (CONFIG.ROWS - 6)) + 3;
             attempts++;
-        } while ((grid.isCaptured(gx, gy) || (gx === hamsterX && gy === hamsterY)) && attempts < 100);
+        } while ((grid.isCaptured(gx, gy) || 
+                  (Math.abs(gx - hamsterX) < 5 && Math.abs(gy - hamsterY) < 5)) 
+                  && attempts < 100);
         
         if (attempts < 100) {
             this.ghosts.push(new Ghost(gx, gy, type));
@@ -218,29 +291,26 @@ class GhostManager {
     }
     
     checkThresholds(percent, hamsterX, hamsterY, grid) {
-        // Добавляем дополнительного преследователя
         if (percent >= CONFIG.GHOST_THRESHOLD_1 && this.ghosts.length < 4) {
-            this.addGhost(hamsterX, hamsterY, grid, 'chaser');
+            this.addGhost(hamsterX, hamsterY, grid, 'patrol');
         }
         if (percent >= CONFIG.GHOST_THRESHOLD_2 && this.ghosts.length < 5) {
             this.addGhost(hamsterX, hamsterY, grid, 'snake');
         }
     }
     
-    update(grid, targetX, targetY) {
+    update(grid, targetX, targetY, hamsterIsOutside, hamsterPath) {
         for (const ghost of this.ghosts) {
-            ghost.move(grid, targetX, targetY);
+            ghost.move(grid, targetX, targetY, hamsterIsOutside, hamsterPath);
         }
     }
     
     checkCollision(x, y) {
         for (const ghost of this.ghosts) {
-            // Проверка столкновения с призраком
             if (ghost.x === x && ghost.y === y) {
                 return true;
             }
             
-            // Проверка столкновения со следом змейки
             if (ghost.type === 'snake') {
                 for (const trail of ghost.trail) {
                     if (trail.x === x && trail.y === y) {
