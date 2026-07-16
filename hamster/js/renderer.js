@@ -3,6 +3,8 @@ class Renderer {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.cellSize = 0;
+        this.stealFlashCells = [];
+        this.stealFlashTimer = 0;
         this.resize();
     }
     
@@ -35,6 +37,24 @@ class Renderer {
                 );
             }
         }
+        
+        // Отрисовка flashing клеток (вор украл)
+        if (this.stealFlashTimer > 0) {
+            const alpha = this.stealFlashTimer / 30;
+            this.ctx.fillStyle = `rgba(255, 235, 59, ${alpha})`;
+            for (const cell of this.stealFlashCells) {
+                this.ctx.fillRect(
+                    cell.x * this.cellSize, cell.y * this.cellSize,
+                    this.cellSize, this.cellSize
+                );
+            }
+            this.stealFlashTimer--;
+        }
+    }
+    
+    flashSteal(cells) {
+        this.stealFlashCells = cells;
+        this.stealFlashTimer = 15;
     }
     
     drawPath(path) {
@@ -70,7 +90,7 @@ class Renderer {
         const gy = ghost.y * this.cellSize + this.cellSize / 2;
         const size = this.cellSize * CONFIG.GHOST_SIZE;
         
-        // Отрисовка следа змейки
+        // След змейки
         if (ghost.type === 'snake' && ghost.trail && ghost.trail.length > 0) {
             this.ctx.fillStyle = 'rgba(255, 100, 100, 0.35)';
             for (const trail of ghost.trail) {
@@ -83,7 +103,7 @@ class Renderer {
             }
         }
         
-        // Цвет в зависимости от типа
+        // Цвет по типу
         let color, glowColor;
         switch(ghost.type) {
             case 'chaser':
@@ -91,15 +111,19 @@ class Renderer {
                 glowColor = CONFIG.COLORS.GHOST_GLOW;
                 break;
             case 'patrol':
-                color = '#ffaa00';
-                glowColor = '#ffaa00';
+                color = CONFIG.COLORS.GHOST_PATROL;
+                glowColor = CONFIG.COLORS.GHOST_PATROL;
                 break;
             case 'snake':
-                color = '#cc44cc';
-                glowColor = '#cc44cc';
+                color = CONFIG.COLORS.GHOST_SNAKE;
+                glowColor = CONFIG.COLORS.GHOST_SNAKE;
+                break;
+            case 'thief':
+                color = CONFIG.COLORS.GHOST_THIEF;
+                glowColor = CONFIG.COLORS.THIEF_GLOW;
                 break;
             default:
-                color = CONFIG.COLORS.GHOST_RANDOM;
+                color = CONFIG.COLORS.GHOST_CHASER;
                 glowColor = CONFIG.COLORS.GHOST_GLOW;
         }
         
@@ -123,6 +147,14 @@ class Renderer {
         this.ctx.closePath();
         this.ctx.fill();
         this.ctx.shadowBlur = 0;
+        
+        // Иконка вора
+        if (ghost.type === 'thief') {
+            this.ctx.fillStyle = '#000';
+            this.ctx.font = `${this.cellSize * 0.5}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('🔑', gx, gy - size * 0.7);
+        }
         
         // Глаза
         const eyeSize = this.cellSize * CONFIG.EYE_SIZE;
@@ -203,7 +235,7 @@ class Renderer {
         this.ctx.arc(hx + size * 0.3, hy - size * 0.15, eyeSize, 0, Math.PI * 2);
         this.ctx.fill();
         
-        // Блики в глазах
+        // Блики
         this.ctx.fillStyle = 'white';
         this.ctx.beginPath();
         this.ctx.arc(hx - size * 0.25, hy - size * 0.2, eyeSize * 0.4, 0, Math.PI * 2);

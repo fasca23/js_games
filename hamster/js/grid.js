@@ -17,7 +17,18 @@ class Grid {
                 }
             }
         }
-        this.capturedCount = (CONFIG.COLS * 2 + CONFIG.ROWS * 2 - 4);
+        this.recount();
+    }
+    
+    recount() {
+        this.capturedCount = 0;
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+            for (let x = 0; x < CONFIG.COLS; x++) {
+                if (this.grid[y][x] === 1 || this.grid[y][x] === 2) {
+                    this.capturedCount++;
+                }
+            }
+        }
     }
     
     capture(x, y) {
@@ -37,9 +48,20 @@ class Grid {
         return this.grid[y][x] === 0;
     }
     
-    getPercent() {
-        return Math.floor((this.capturedCount / (CONFIG.COLS * CONFIG.ROWS)) * 100);
+getPercent() {
+    let innerCaptured = 0;
+    let innerTotal = 0;
+    for (let y = 1; y < CONFIG.ROWS - 1; y++) {
+        for (let x = 1; x < CONFIG.COLS - 1; x++) {
+            innerTotal++;
+            if (this.grid[y][x] === 1 || this.grid[y][x] === 2) {
+                innerCaptured++;
+            }
+        }
     }
+    if (innerTotal === 0) return 0;
+    return Math.floor((innerCaptured / innerTotal) * 100);
+}
     
     findSafeSpot(ghosts, minDist) {
         const spots = [];
@@ -62,101 +84,89 @@ class Grid {
         return spots;
     }
     
-    // Flood fill для захвата замкнутой области
-    captureEnclosedArea(pathCells) {
-        // Создаем временную карту с путем
-        const tempGrid = this.grid.map(row => [...row]);
-        
-        // Отмечаем путь как границу
-        for (const cell of pathCells) {
-            if (cell.x >= 0 && cell.x < CONFIG.COLS && cell.y >= 0 && cell.y < CONFIG.ROWS) {
-                tempGrid[cell.y][cell.x] = 2; // временная граница
-            }
+captureEnclosedArea(pathCells) {
+    const tempGrid = this.grid.map(row => [...row]);
+    
+    for (const cell of pathCells) {
+        if (cell.x >= 0 && cell.x < CONFIG.COLS && cell.y >= 0 && cell.y < CONFIG.ROWS) {
+            tempGrid[cell.y][cell.x] = 2;
         }
-        
-        // Находим область, которая закрашивается
-        // Проверяем соседние клетки пути - какая сторона меньше
-        const captured = [];
-        const killedGhosts = [];
-        
-        // Проверяем 4 направления от середины пути
-        const midPath = pathCells[Math.floor(pathCells.length / 2)];
-        
-        const directions = [
-            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
-            { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
-        ];
-        
-        for (const dir of directions) {
-            const startX = midPath.x + dir.dx;
-            const startY = midPath.y + dir.dy;
-            
-            if (startX < 0 || startX >= CONFIG.COLS || startY < 0 || startY >= CONFIG.ROWS) continue;
-            if (tempGrid[startY][startX] !== 0) continue;
-            
-            // Flood fill
-            const area = [];
-            const queue = [{ x: startX, y: startY }];
-            const visited = new Set();
-            
-            while (queue.length > 0) {
-                const { x, y } = queue.shift();
-                const key = `${x},${y}`;
-                
-                if (visited.has(key)) continue;
-                if (x < 0 || x >= CONFIG.COLS || y < 0 || y >= CONFIG.ROWS) continue;
-                if (tempGrid[y][x] !== 0) continue;
-                
-                visited.add(key);
-                area.push({ x, y });
-                
-                queue.push({ x: x + 1, y });
-                queue.push({ x: x - 1, y });
-                queue.push({ x, y: y + 1 });
-                queue.push({ x, y: y - 1 });
-            }
-            
-            // Если область не граничит с краем - это замкнутая область
-            let touchesEdge = false;
-            for (const cell of area) {
-                if (cell.x === 0 || cell.x === CONFIG.COLS - 1 || 
-                    cell.y === 0 || cell.y === CONFIG.ROWS - 1) {
-                    touchesEdge = true;
-                    break;
-                }
-                // Проверяем соседей
-                for (const d of directions) {
-                    const nx = cell.x + d.dx;
-                    const ny = cell.y + d.dy;
-                    if (nx < 0 || nx >= CONFIG.COLS || ny < 0 || ny >= CONFIG.ROWS) {
-                        touchesEdge = true;
-                        break;
-                    }
-                }
-                if (touchesEdge) break;
-            }
-            
-            // Если не касается края и меньше 50% поля - захватываем
-            if (!touchesEdge && area.length > 0 && area.length < (CONFIG.COLS * CONFIG.ROWS) * 0.5) {
-                for (const cell of area) {
-                    if (this.grid[cell.y][cell.x] === 0) {
-                        this.grid[cell.y][cell.x] = 1;
-                        this.capturedCount++;
-                        captured.push(cell);
-                    }
-                }
-                // Захватываем и сам путь
-                for (const cell of pathCells) {
-                    if (this.grid[cell.y][cell.x] === 0) {
-                        this.grid[cell.y][cell.x] = 1;
-                        this.capturedCount++;
-                        captured.push(cell);
-                    }
-                }
-                break;
-            }
-        }
-        
-        return { captured: captured.length, killedGhosts };
     }
+    
+    if (pathCells.length === 0) return { captured: 0, killedGhosts: [] };
+    
+    const midPath = pathCells[Math.floor(pathCells.length / 2)];
+    
+    const directions = [
+        { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+    ];
+    
+    let bestArea = null;
+    let bestSize = Infinity;
+    let touchesEdge = false;
+    
+    for (const dir of directions) {
+        const startX = midPath.x + dir.dx;
+        const startY = midPath.y + dir.dy;
+        
+        if (startX < 0 || startX >= CONFIG.COLS || startY < 0 || startY >= CONFIG.ROWS) continue;
+        if (tempGrid[startY][startX] !== 0) continue;
+        
+        const area = [];
+        const queue = [{ x: startX, y: startY }];
+        const visited = new Set();
+        let edge = false;
+        
+        while (queue.length > 0) {
+            const { x, y } = queue.shift();
+            const key = `${x},${y}`;
+            
+            if (visited.has(key)) continue;
+            if (x < 0 || x >= CONFIG.COLS || y < 0 || y >= CONFIG.ROWS) continue;
+            if (tempGrid[y][x] !== 0) continue;
+            
+            // Проверка на край
+            if (x === 0 || x === CONFIG.COLS - 1 || y === 0 || y === CONFIG.ROWS - 1) {
+                edge = true;
+            }
+            
+            visited.add(key);
+            area.push({ x, y });
+            
+            queue.push({ x: x + 1, y });
+            queue.push({ x: x - 1, y });
+            queue.push({ x, y: y + 1 });
+            queue.push({ x, y: y - 1 });
+        }
+        
+        // Выбираем меньшую область
+        if (area.length > 0 && area.length < bestSize) {
+            bestSize = area.length;
+            bestArea = area;
+            touchesEdge = edge;
+        }
+    }
+    
+    const captured = [];
+    
+    if (bestArea && bestSize < (CONFIG.COLS * CONFIG.ROWS) * 0.5) {
+        for (const cell of bestArea) {
+            if (this.grid[cell.y][cell.x] === 0) {
+                this.grid[cell.y][cell.x] = 1;
+                this.capturedCount++;
+                captured.push(cell);
+            }
+        }
+        for (const cell of pathCells) {
+            if (this.grid[cell.y][cell.x] === 0) {
+                this.grid[cell.y][cell.x] = 1;
+                this.capturedCount++;
+                captured.push(cell);
+            }
+        }
+    }
+    
+    return { captured: captured.length, killedGhosts: [] };
+}
 }

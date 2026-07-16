@@ -6,8 +6,8 @@ class Ghost {
         this.dy = 0;
         this.type = type;
         this.trail = [];
-        this.stunned = false;
-        this.stunTimer = 0;
+        this.stealTimer = 0;
+        this.stuckTimer = 0;
         
         if (Math.random() > 0.5) {
             this.dx = 0;
@@ -15,14 +15,7 @@ class Ghost {
         }
     }
     
-    move(grid, targetX, targetY, hamsterIsOutside, hamsterPath) {
-        if (this.stunned) {
-            this.stunTimer--;
-            if (this.stunTimer <= 0) this.stunned = false;
-            return;
-        }
-        
-        // Обновляем след змейки
+    move(grid, targetX, targetY, hamsterIsOutside, hamsterPath, timestamp) {
         if (this.type === 'snake') {
             this.trail.push({ x: this.x, y: this.y });
             if (this.trail.length > 10) this.trail.shift();
@@ -38,6 +31,114 @@ class Ghost {
             case 'snake':
                 this.moveSnake(grid, targetX, targetY);
                 break;
+            case 'thief':
+                return this.moveThief(grid, timestamp);
+        }
+        return null;
+    }
+    
+    moveThief(grid, timestamp) {
+        // Всегда двигаемся
+        this.doMoveThief(grid);
+        
+        // Кража каждый интервал
+        if (!this.stealTimer) this.stealTimer = timestamp;
+        if (timestamp - this.stealTimer >= CONFIG.THIEF_STEAL_INTERVAL) {
+            this.stealTimer = timestamp;
+            const size = CONFIG.THIEF_STEAL_SIZE;
+            const half = Math.floor(size / 2);
+            let stolen = 0;
+            const cells = [];
+            
+            for (let dy = -half; dy <= half; dy++) {
+                for (let dx = -half; dx <= half; dx++) {
+                    const sx = this.x + dx;
+                    const sy = this.y + dy;
+                    
+                    if (sx > 0 && sx < CONFIG.COLS - 1 && sy > 0 && sy < CONFIG.ROWS - 1) {
+                        if (grid.grid[sy][sx] === 1) {
+                            grid.grid[sy][sx] = 0;
+                            grid.capturedCount--;
+                            stolen++;
+                            cells.push({ x: sx, y: sy });
+                        }
+                    }
+                }
+            }
+            
+            if (stolen > 0) {
+                return { stolen, cells };
+            }
+        }
+        return null;
+    }
+    
+    doMoveThief(grid) {
+        const directions = [
+            { dx: 0, dy: -1 }, { dx: 1, dy: 0 },
+            { dx: 0, dy: 1 }, { dx: -1, dy: 0 }
+        ];
+        
+        // Проверяем, не застрял ли
+        const currentValid = grid.isCaptured(this.x, this.y);
+        if (!currentValid) {
+            // Оказался на свободной клетке — ищем ближайшую захваченную
+            for (const dir of directions) {
+                if (grid.isCaptured(this.x + dir.dx, this.y + dir.dy)) {
+                    this.x += dir.dx;
+                    this.y += dir.dy;
+                    return;
+                }
+            }
+            // Ищем любую захваченную поблизости
+            for (let r = 1; r < 5; r++) {
+                for (let dy = -r; dy <= r; dy++) {
+                    for (let dx = -r; dx <= r; dx++) {
+                        if (grid.isCaptured(this.x + dx, this.y + dy)) {
+                            this.x += dx > 0 ? 1 : dx < 0 ? -1 : 0;
+                            this.y += dy > 0 ? 1 : dy < 0 ? -1 : 0;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Собираем все возможные направления по территории
+        const validDirs = directions.filter(d => {
+            const nx = this.x + d.dx;
+            const ny = this.y + d.dy;
+            return grid.isCaptured(nx, ny) && !(d.dx === -this.dx && d.dy === -this.dy);
+        });
+        
+        if (validDirs.length > 0) {
+            const dir = validDirs[Math.floor(Math.random() * validDirs.length)];
+            this.dx = dir.dx;
+            this.dy = dir.dy;
+            this.x += this.dx;
+            this.y += this.dy;
+            this.stuckTimer = 0;
+        } else {
+            this.stuckTimer++;
+            // Если застрял надолго — телепорт в случайную захваченную клетку
+            if (this.stuckTimer > 20) {
+                this.teleportToCaptured(grid);
+                this.stuckTimer = 0;
+            }
+        }
+    }
+    
+    teleportToCaptured(grid) {
+        const captured = [];
+        for (let y = 3; y < CONFIG.ROWS - 3; y++) {
+            for (let x = 3; x < CONFIG.COLS - 3; x++) {
+                if (grid.isCaptured(x, y)) captured.push({x, y});
+            }
+        }
+        if (captured.length > 0) {
+            const spot = captured[Math.floor(Math.random() * captured.length)];
+            this.x = spot.x;
+            this.y = spot.y;
         }
     }
     
@@ -45,29 +146,16 @@ class Ghost {
         const dist = Math.hypot(targetX - this.x, targetY - this.y);
         
         if (hamsterIsOutside) {
-            // Хомяк снаружи - всегда преследуем, но с разной точностью
             if (dist < 5) {
-                // Близко - агрессивно, 95% точность
-                if (Math.random() < 0.95) {
-                    this.moveToward(targetX, targetY);
-                }
+                if (Math.random() < 0.95) this.moveToward(targetX, targetY);
             } else if (dist < 12) {
-                // Средне - 80% точность
-                if (Math.random() < 0.8) {
-                    this.moveToward(targetX, targetY);
-                } else {
-                    this.randomDirection(grid);
-                }
+                if (Math.random() < 0.8) this.moveToward(targetX, targetY);
+                else this.randomDirection(grid);
             } else {
-                // Далеко - 60% точность
-                if (Math.random() < 0.6) {
-                    this.moveToward(targetX, targetY);
-                } else {
-                    this.randomDirection(grid);
-                }
+                if (Math.random() < 0.6) this.moveToward(targetX, targetY);
+                else this.randomDirection(grid);
             }
         } else {
-            // Хомяк на территории - патрулируем у границы
             this.movePatrol(grid, targetX, targetY, []);
             return;
         }
@@ -94,7 +182,6 @@ class Ghost {
             { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
         ];
         
-        // Если хомяк прокладывает путь - пытаемся перехватить
         if (hamsterPath && hamsterPath.length > 0) {
             const lastPath = hamsterPath[hamsterPath.length - 1];
             const distToPath = Math.hypot(lastPath.x - this.x, lastPath.y - this.y);
@@ -119,7 +206,6 @@ class Ghost {
             }
         }
         
-        // Обычное патрулирование вдоль границ
         let bestDir = { dx: this.dx, dy: this.dy };
         let bestScore = -Infinity;
         
@@ -263,10 +349,12 @@ class Ghost {
 class GhostManager {
     constructor() {
         this.ghosts = [];
+        this.thiefAdded = false;
     }
     
     reset(hamsterX, hamsterY, grid) {
         this.ghosts = [];
+        this.thiefAdded = false;
         this.addGhost(hamsterX, hamsterY, grid, 'chaser');
         this.addGhost(hamsterX, hamsterY, grid, 'patrol');
         this.addGhost(hamsterX, hamsterY, grid, 'snake');
@@ -277,36 +365,64 @@ class GhostManager {
         
         let gx, gy;
         let attempts = 0;
-        do {
-            gx = Math.floor(Math.random() * (CONFIG.COLS - 6)) + 3;
-            gy = Math.floor(Math.random() * (CONFIG.ROWS - 6)) + 3;
-            attempts++;
-        } while ((grid.isCaptured(gx, gy) || 
-                  (Math.abs(gx - hamsterX) < 5 && Math.abs(gy - hamsterY) < 5)) 
-                  && attempts < 100);
         
-        if (attempts < 100) {
-            this.ghosts.push(new Ghost(gx, gy, type));
+        if (type === 'thief') {
+            // Вор ищет захваченную клетку
+            const captured = [];
+            for (let y = 2; y < CONFIG.ROWS - 2; y++) {
+                for (let x = 2; x < CONFIG.COLS - 2; x++) {
+                    if (grid.isCaptured(x, y)) captured.push({x, y});
+                }
+            }
+            if (captured.length === 0) return; // нет места
+            const spot = captured[Math.floor(Math.random() * captured.length)];
+            gx = spot.x;
+            gy = spot.y;
+        } else {
+            do {
+                gx = Math.floor(Math.random() * (CONFIG.COLS - 6)) + 3;
+                gy = Math.floor(Math.random() * (CONFIG.ROWS - 6)) + 3;
+                attempts++;
+            } while ((grid.isCaptured(gx, gy) || 
+                      (Math.abs(gx - hamsterX) < 5 && Math.abs(gy - hamsterY) < 5)) 
+                      && attempts < 100);
+            if (attempts >= 100) return;
         }
+        
+        this.ghosts.push(new Ghost(gx, gy, type));
     }
     
     checkThresholds(percent, hamsterX, hamsterY, grid) {
-        if (percent >= CONFIG.GHOST_THRESHOLD_1 && this.ghosts.length < 4) {
+        // Вор при 10%
+        if (percent >= CONFIG.THIEF_APPEAR_AT && !this.thiefAdded) {
+            this.addGhost(hamsterX, hamsterY, grid, 'thief');
+            this.thiefAdded = true;
+        }
+        if (percent >= CONFIG.GHOST_THRESHOLD_1 && this.ghosts.length < 5) {
             this.addGhost(hamsterX, hamsterY, grid, 'patrol');
         }
-        if (percent >= CONFIG.GHOST_THRESHOLD_2 && this.ghosts.length < 5) {
+        if (percent >= CONFIG.GHOST_THRESHOLD_2 && this.ghosts.length < 6) {
             this.addGhost(hamsterX, hamsterY, grid, 'snake');
+        }
+        if (percent >= CONFIG.GHOST_THRESHOLD_3 && this.ghosts.length < 7) {
+            this.addGhost(hamsterX, hamsterY, grid, 'chaser');
         }
     }
     
-    update(grid, targetX, targetY, hamsterIsOutside, hamsterPath) {
+    update(grid, targetX, targetY, hamsterIsOutside, hamsterPath, timestamp) {
         for (const ghost of this.ghosts) {
-            ghost.move(grid, targetX, targetY, hamsterIsOutside, hamsterPath);
+            const stealResult = ghost.move(grid, targetX, targetY, hamsterIsOutside, hamsterPath, timestamp);
+            
+            if (stealResult && stealResult.stolen > 0 && window._onSteal) {
+                window._onSteal(stealResult.cells);
+            }
         }
     }
     
     checkCollision(x, y) {
         for (const ghost of this.ghosts) {
+            if (ghost.type === 'thief') continue;
+            
             if (ghost.x === x && ghost.y === y) {
                 return true;
             }

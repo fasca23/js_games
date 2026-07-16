@@ -1,0 +1,1867 @@
+===========================================
+📄 ОБЪЕДИНЕННЫЙ ФАЙЛ ПРОЕКТА
+===========================================
+📅 Дата создания: Чт 16 июл 2026 19:56:56 MSK
+📁 Директория: /home/kamenev/js_games/hamster
+===========================================
+
+===========================================
+📁 Файл: ./build.py
+📅 Дата: 2026-07-09 21:47:15.306177045 +0300
+📏 Размер: 8.42 KB
+📝 Тип: HTML document, Unicode text, UTF-8 text
+📊 Строк: 257
+===========================================
+
+#!/usr/bin/env python3
+"""
+Сборщик игры Хомяк.
+Режимы:
+  python build.py          - сборка в 3 файла (dist/)
+  python build.py single   - сборка в 1 файл (index_bundle.html)
+  python build.py template - сборка в Jinja2 шаблон
+  python build.py all      - все варианты
+"""
+
+import re
+import os
+import sys
+import subprocess
+
+def read_file(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        return f.read()
+
+def write_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+def minify_css(css):
+    css = re.sub(r'/\*.*?\*/', '', css, flags=re.DOTALL)
+    css = re.sub(r'\s+', ' ', css)
+    css = re.sub(r'\s*{\s*', '{', css)
+    css = re.sub(r'\s*}\s*', '}', css)
+    css = re.sub(r'\s*;\s*', ';', css)
+    css = re.sub(r'\s*:\s*', ':', css)
+    css = re.sub(r';\s*}', '}', css)
+    css = re.sub(r':0\w+', ':0', css)
+    css = re.sub(r'#([0-9a-fA-F])\1([0-9a-fA-F])\2([0-9a-fA-F])\3', r'#\1\2\3', css)
+    return css.strip()
+
+def minify_js(js):
+    try:
+        result = subprocess.run(
+            ['npx', 'uglifyjs', '--compress', '--mangle'],
+            input=js, capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except:
+        pass
+    
+    js = re.sub(r'//.*?\n', '\n', js)
+    js = re.sub(r'/\*.*?\*/', '', js, flags=re.DOTALL)
+    js = re.sub(r'\s+', ' ', js)
+    js = re.sub(r'\s*([{}();,:])\s*', r'\1', js)
+    js = re.sub(r'}\s*', '}', js)
+    return js.strip()
+
+def minify_html(html):
+    html = re.sub(r'<!--.*?-->', '', html, flags=re.DOTALL)
+    html = re.sub(r'\n\s*', '', html)
+    html = re.sub(r'>\s+<', '><', html)
+    html = re.sub(r'\s+', ' ', html)
+    return html.strip()
+
+def get_combined_js():
+    js_files = [
+        'js/config.js',
+        'js/grid.js',
+        'js/hamster.js',
+        'js/ghosts.js',
+        'js/renderer.js',
+        'js/game.js',
+        'js/main.js'
+    ]
+    
+    combined = ''
+    for file in js_files:
+        if os.path.exists(file):
+            combined += read_file(file) + '\n'
+            print(f"  ✅ {file}")
+        else:
+            print(f"  ❌ {file} не найден!")
+    
+    return combined
+
+def build_three_files():
+    print("📦 Сборка в 3 файла...")
+    
+    combined_js = get_combined_js()
+    css = read_file('css/style.css')
+    print(f"  ✅ css/style.css")
+    
+    print("🎨 Минификация...")
+    minified_css = minify_css(css)
+    minified_js = minify_js(combined_js)
+    
+    html = """<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🐹 Хомяк - Захват территории</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-wrapper">
+        <h1>🐹 Хомяк</h1>
+        <div class="records-bar">🏆 Рекорд: <span id="highscoreValue">0%</span></div>
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <div class="stats-row">
+                <div class="stat">🎯 Захвачено: <span id="scoreValue">0%</span></div>
+                <div class="stat">❤️ Жизни: <span id="livesValue">3</span></div>
+                <div class="stat">👻 Врагов: <span id="ghostCount">2</span></div>
+            </div>
+            <div class="game-buttons">
+                <button class="restart-btn" onclick="restartGame()">🔄 Заново</button>
+                <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸️ Пауза</button>
+            </div>
+            <div class="mobile-controls">
+                <div class="control-row">
+                    <button class="control-btn" id="btnUp">▲</button>
+                </div>
+                <div class="control-row">
+                    <button class="control-btn" id="btnLeft">◀</button>
+                    <button class="control-btn" id="btnDown">▼</button>
+                    <button class="control-btn" id="btnRight">▶</button>
+                </div>
+            </div>
+            <p class="controls-hint">💡 Стрелки/WASD — движение</p>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>"""
+    
+    write_file('dist/style.css', minified_css)
+    write_file('dist/game.js', minified_js)
+    write_file('dist/index.html', html)
+    
+    print(f"\n✅ Собрано в dist/")
+
+def build_single_file():
+    print("📦 Сборка в 1 файл...")
+    
+    combined_js = get_combined_js()
+    css = read_file('css/style.css')
+    html = read_file('index.html')
+    
+    print("🎨 Минификация...")
+    minified_css = minify_css(css)
+    minified_js = minify_js(combined_js)
+    
+    html = html.replace(
+        '<link rel="stylesheet" href="css/style.css">',
+        f'<style>{minified_css}</style>'
+    )
+    html = re.sub(r'<script src="js/.*?"></script>\s*', '', html)
+    html = html.replace('</body>', f'<script>{minified_js}</script>\n</body>')
+    
+    minified_html = minify_html(html)
+    write_file('index_bundle.html', '<!DOCTYPE html>' + minified_html)
+    
+    print(f"\n✅ Собрано в index_bundle.html: {os.path.getsize('index_bundle.html')} байт")
+
+def build_template():
+    print("📦 Сборка в Jinja2 шаблон...")
+    
+    combined_js = get_combined_js()
+    css = read_file('css/style.css')
+    
+    print("🎨 Минификация...")
+    minified_css = minify_css(css)
+    combined_js = combined_js.strip()
+    
+    template = """{% extends "base.html" %}
+
+{% block title %}🐹 Хомяк — Захват территории{% endblock %}
+
+{% block extra_head %}
+<style>CUSTOM_CSS</style>
+{% endblock %}
+
+{% block content %}
+<div class="game-wrapper">
+    <h1>🐹 Хомяк</h1>
+    <div class="records-bar">🏆 Рекорд: <span id="highscoreValue">0%</span></div>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="stats-row">
+            <div class="stat">🎯 Захвачено: <span id="scoreValue">0%</span></div>
+            <div class="stat">❤️ Жизни: <span id="livesValue">3</span></div>
+            <div class="stat">👻 Врагов: <span id="ghostCount">2</span></div>
+        </div>
+        
+        <div class="game-buttons">
+            <button class="restart-btn" onclick="restartGame()">🔄 Заново</button>
+            <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸️ Пауза</button>
+        </div>
+        
+        <div class="mobile-controls">
+            <div class="control-row">
+                <button class="control-btn" id="btnUp">▲</button>
+            </div>
+            <div class="control-row">
+                <button class="control-btn" id="btnLeft">◀</button>
+                <button class="control-btn" id="btnDown">▼</button>
+                <button class="control-btn" id="btnRight">▶</button>
+            </div>
+        </div>
+        
+        <p class="controls-hint">💡 Стрелки/WASD — движение</p>
+    </div>
+    
+    <a href="/projects" class="back-link">← Назад к проектам</a>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>CUSTOM_JS</script>
+{% endblock %}"""
+    
+    template = template.replace('CUSTOM_CSS', minified_css)
+    template = template.replace('CUSTOM_JS', combined_js)
+    
+    write_file('hamster_template_bundle.html', template)
+    print(f"\n✅ Собрано в hamster_template_bundle.html")
+
+def show_help():
+    print("""
+🔧 Сборщик Хомяк
+
+Использование:
+  python build.py          - сборка в 3 файла (dist/)
+  python build.py single   - сборка в 1 файл (index_bundle.html)
+  python build.py template - сборка в Jinja2 шаблон
+  python build.py all      - все варианты
+  python build.py help     - справка
+""")
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        build_three_files()
+    elif sys.argv[1] == 'single':
+        build_single_file()
+    elif sys.argv[1] == 'template':
+        build_template()
+    elif sys.argv[1] == 'all':
+        build_three_files()
+        print("\n" + "="*50 + "\n")
+        build_single_file()
+        print("\n" + "="*50 + "\n")
+        build_template()
+    elif sys.argv[1] == 'help':
+        show_help()
+    else:
+        show_help()
+
+===========================================
+📁 Файл: ./css/style.css
+📅 Дата: 2026-07-09 21:44:29.679979174 +0300
+📏 Размер: 3.29 KB
+📝 Тип: ASCII text
+📊 Строк: 176
+===========================================
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body {
+    background: #0a0a0a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    padding: 10px;
+}
+
+.game-wrapper {
+    padding: 15px;
+    width: 100%;
+    max-width: 520px;
+}
+
+h1 {
+    text-align: center;
+    color: #daa520;
+    font-size: 32px;
+    margin-bottom: 5px;
+    text-shadow: 0 0 20px rgba(218, 165, 32, 0.6);
+}
+
+.records-bar {
+    text-align: center;
+    color: #ffd700;
+    font-size: 16px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    font-weight: bold;
+}
+
+.game-container {
+    text-align: center;
+    background: #1a1a2e;
+    border-radius: 20px;
+    padding: 15px;
+    box-shadow: 0 0 40px rgba(0, 255, 0, 0.3), 0 0 80px rgba(0, 0, 0, 0.8);
+    border: 2px solid #00ff41;
+}
+
+#gameCanvas {
+    display: block;
+    border: 3px solid #00ff41;
+    border-radius: 5px;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), inset 0 0 20px rgba(0, 255, 0, 0.1);
+    background: #000;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    touch-action: none;
+}
+
+.stats-row {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.stat {
+    color: #00ff41;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.game-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.restart-btn, .pause-btn {
+    padding: 12px 28px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.restart-btn {
+    background: #000;
+    border: 2px solid #ff0040;
+    color: #ff0040;
+    text-shadow: 0 0 10px #ff0040;
+    box-shadow: 0 0 15px rgba(255, 0, 64, 0.3);
+}
+
+.restart-btn:active {
+    background: #ff0040;
+    color: #000;
+    box-shadow: 0 0 30px rgba(255, 0, 64, 0.8);
+    transform: scale(0.95);
+}
+
+.pause-btn {
+    background: linear-gradient(135deg, #ffd700, #ffaa00);
+    color: #1a1a1a;
+}
+
+.pause-btn:hover, .restart-btn:hover {
+    transform: scale(1.05);
+}
+
+.mobile-controls {
+    display: none;
+    margin-top: 15px;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    position: relative;
+    z-index: 10;
+}
+
+.control-row {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 8px;
+}
+
+.control-btn {
+    width: 60px;
+    height: 60px;
+    background: #000;
+    border: 2px solid #00ff41;
+    color: #00ff41;
+    font-size: 28px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.control-btn:active {
+    background: #00ff41;
+    color: #000;
+    box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+    transform: scale(0.9);
+}
+
+.controls-hint {
+    color: #888;
+    font-size: 14px;
+    margin-top: 15px;
+}
+
+@media (max-width: 768px) {
+    #gameCanvas {
+        width: 100%;
+        height: auto;
+    }
+    
+    .mobile-controls {
+        display: block;
+    }
+}
+
+===========================================
+📁 Файл: ./index.html
+📅 Дата: 2026-07-16 19:03:04.371001081 +0300
+📏 Размер: 2.06 KB
+📝 Тип: HTML document, Unicode text, UTF-8 text
+📊 Строк: 52
+===========================================
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🐹 Хомяк - Захват территории</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="game-wrapper">
+        <h1>🐹 Хомяк</h1>
+        <div class="records-bar">
+            🏆 Рекорд: <span id="highscoreValue">0%</span>
+        </div>
+        
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            
+            <div class="stats-row">
+                <div class="stat">🎯 Захвачено: <span id="scoreValue">0%</span></div>
+                <div class="stat">❤️ Жизни: <span id="livesValue">3</span></div>
+                <div class="stat">👻 Врагов: <span id="ghostCount">2</span></div>
+            </div>
+            
+            <div class="game-buttons">
+                <button class="restart-btn" onclick="restartGame()">🔄 Заново</button>
+                <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸️ Пауза</button>
+            </div>
+            
+            <div class="mobile-controls">
+                <div class="control-row">
+                    <button class="control-btn" id="btnUp">▲</button>
+                </div>
+                <div class="control-row">
+                    <button class="control-btn" id="btnLeft">◀</button>
+                    <button class="control-btn" id="btnDown">▼</button>
+                    <button class="control-btn" id="btnRight">▶</button>
+                </div>
+            </div>
+            
+            <p class="controls-hint">💡 Стрелки/WASD — движение</p>
+        </div>
+    </div>
+    
+    <script src="js/config.js"></script>
+    <script src="js/grid.js"></script>
+    <script src="js/hamster.js"></script>
+    <script src="js/ghosts.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
+
+===========================================
+📁 Файл: ./js/config.js
+📅 Дата: 2026-07-16 18:48:48.653840454 +0300
+📏 Размер: 1.17 KB
+📝 Тип: Unicode text, UTF-8 text
+📊 Строк: 42
+===========================================
+
+const CONFIG = {
+    COLS: 19,
+    ROWS: 19,
+    GAME_SPEED: 120,
+    INITIAL_LIVES: 3,
+    WIN_PERCENT: 80,
+    
+    HAMSTER_SIZE: 0.60,
+    GHOST_SIZE: 0.55,
+    EYE_SIZE: 0.12,
+    PUPIL_SIZE: 0.06,
+    
+    INITIAL_GHOSTS: 4,          // 3 обычных + 1 вор сразу
+    MAX_GHOSTS: 7,
+    
+    // Вор
+    THIEF_APPEAR_AT: 0,         // появляется сразу
+    THIEF_STEAL_SIZE: 3,        // крадёт область 3x3
+    THIEF_STEAL_INTERVAL: 1000, // интервал кражи 1 сек
+    THIEF_MOVE_DELAY: 2,        // двигается каждый 2-й кадр
+    
+    GHOST_THRESHOLD_1: 30,
+    GHOST_THRESHOLD_2: 50,
+    GHOST_THRESHOLD_3: 75,
+    
+    COLORS: {
+        BG: '#000',
+        CAPTURED: '#1a3a1a',
+        BORDER: '#2a4a2a',
+        PATH: '#3a6a3a',
+        GRID_LINE: '#0a2a0a',
+        HAMSTER: '#daa520',
+        HAMSTER_EAR: '#b8860b',
+        HAMSTER_FACE: '#ffcc80',
+        HAMSTER_NOSE: '#ff69b4',
+        GHOST_CHASER: '#ff0040',
+        GHOST_PATROL: '#ffaa00',
+        GHOST_SNAKE: '#cc44cc',
+        GHOST_THIEF: '#ff00ff',      // ярко-розовый
+        GHOST_GLOW: '#ff0040',
+        THIEF_GLOW: '#ff00ff'
+    }
+};
+
+===========================================
+📁 Файл: ./js/game.js
+📅 Дата: 2026-07-16 19:20:32.990789483 +0300
+📏 Размер: 6.51 KB
+📝 Тип: C++ source, Unicode text, UTF-8 text
+📊 Строк: 201
+===========================================
+
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.renderer = new Renderer(this.canvas);
+        this.grid = new Grid();
+        this.hamster = new Hamster();
+        this.ghostManager = new GhostManager();
+        
+        this.score = 0;
+        this.lives = CONFIG.INITIAL_LIVES;
+        this.gameRunning = false;
+        this.gamePaused = false;
+        this.gameOver = false;
+        this.gameWon = false;
+        this.gameLoop = null;
+        
+        this.uiScore = document.getElementById('scoreValue');
+        this.uiLives = document.getElementById('livesValue');
+        this.uiGhosts = document.getElementById('ghostCount');
+        this.uiPause = document.getElementById('pauseBtn');
+        
+        this.setupControls();
+        
+        window.addEventListener('resize', () => {
+            this.renderer.resize();
+            this.render();
+        });
+    }
+    
+    init() {
+        this.grid.reset();
+        this.hamster.reset();
+        this.grid.capture(this.hamster.x, this.hamster.y);
+        this.ghostManager.reset(this.hamster.x, this.hamster.y, this.grid);
+        
+        this.score = 0;
+        this.lives = CONFIG.INITIAL_LIVES;
+        this.gameRunning = true;
+        this.gamePaused = false;
+        this.gameOver = false;
+        this.gameWon = false;
+        
+        window._onSteal = (cells) => {
+            this.renderer.flashSteal(cells);
+        };
+        
+        this.updateUI();
+        if (this.uiPause) this.uiPause.textContent = '⏸️ Пауза';
+        
+        clearInterval(this.gameLoop);
+        this.gameLoop = setInterval(() => this.update(), CONFIG.GAME_SPEED);
+        this.render();
+    }
+    
+    updateUI() {
+        if (this.uiScore) this.uiScore.textContent = this.grid.getPercent() + '%';
+        if (this.uiLives) this.uiLives.textContent = this.lives;
+        if (this.uiGhosts) this.uiGhosts.textContent = this.ghostManager.count();
+    }
+    
+    saveHighscore() {
+        const percent = this.grid.getPercent();
+        const saved = localStorage.getItem('hamster_highscore') || 0;
+        if (percent > saved) {
+            localStorage.setItem('hamster_highscore', percent);
+            const el = document.getElementById('highscoreValue');
+            if (el) el.textContent = percent + '%';
+        }
+    }
+    
+    setupControls() {
+        window.addEventListener('keydown', (e) => {
+            if (this.gameOver || this.gameWon) {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    this.init();
+                    e.preventDefault();
+                }
+                return;
+            }
+            
+            if (!this.gameRunning) return;
+            
+            switch(e.key) {
+                case 'ArrowUp': case 'w': case 'W':
+                    e.preventDefault();
+                    this.hamster.setDirection(0, -1);
+                    break;
+                case 'ArrowDown': case 's': case 'S':
+                    e.preventDefault();
+                    this.hamster.setDirection(0, 1);
+                    break;
+                case 'ArrowLeft': case 'a': case 'A':
+                    e.preventDefault();
+                    this.hamster.setDirection(-1, 0);
+                    break;
+                case 'ArrowRight': case 'd': case 'D':
+                    e.preventDefault();
+                    this.hamster.setDirection(1, 0);
+                    break;
+            }
+        });
+    }
+    
+    togglePause() {
+        if (!this.gameRunning) return;
+        this.gamePaused = !this.gamePaused;
+        if (this.uiPause) {
+            this.uiPause.textContent = this.gamePaused ? '▶️ Играть' : '⏸️ Пауза';
+        }
+    }
+    
+    update() {
+        if (this.gamePaused || this.gameOver || this.gameWon) return;
+        
+        const result = this.hamster.update(this.grid);
+        
+        if (result && result.type === 'capture') {
+            this.updateUI();
+            const percent = this.grid.getPercent();
+            this.ghostManager.checkThresholds(percent, this.hamster.x, this.hamster.y, this.grid);
+            
+            if (percent >= CONFIG.WIN_PERCENT) {
+                this.gameWon = true;
+                this.gameRunning = false;
+                clearInterval(this.gameLoop);
+                this.saveHighscore();
+                this.render();
+                return;
+            }
+        }
+        
+        this.ghostManager.update(
+            this.grid, this.hamster.x, this.hamster.y,
+            this.hamster.isOutside, this.hamster.path, Date.now()
+        );
+        
+        if (this.ghostManager.checkCollision(this.hamster.x, this.hamster.y)) {
+            this.lives--;
+            this.updateUI();
+            
+            if (this.lives <= 0) {
+                this.gameOver = true;
+                this.gameRunning = false;
+                clearInterval(this.gameLoop);
+                this.saveHighscore();
+                this.render();
+                return;
+            }
+            
+            this.resetHamster();
+        }
+        
+        if (this.hamster.isOutside && this.grid.isCaptured(this.hamster.x, this.hamster.y)) {
+            this.grid.captureEnclosedArea(this.hamster.path);
+            this.hamster.path = [];
+            this.hamster.isOutside = false;
+            this.updateUI();
+        }
+        
+        this.render();
+    }
+    
+    resetHamster() {
+        const spots = this.grid.findSafeSpot(this.ghostManager.getAll(), 2);
+        
+        if (spots.length > 0) {
+            const spot = spots[Math.floor(Math.random() * spots.length)];
+            this.hamster.x = spot.x;
+            this.hamster.y = spot.y;
+        }
+        
+        this.hamster.dx = 0;
+        this.hamster.dy = 0;
+        this.hamster.nextDx = 0;
+        this.hamster.nextDy = 0;
+        this.hamster.path = [];
+        this.hamster.isOutside = false;
+    }
+    
+    render() {
+        this.renderer.clear();
+        this.renderer.drawGrid(this.grid);
+        this.renderer.drawPath(this.hamster.path);
+        this.renderer.drawGridLines();
+        
+        for (const ghost of this.ghostManager.getAll()) {
+            this.renderer.drawGhost(ghost);
+        }
+        
+        this.renderer.drawHamster(this.hamster);
+        
+        if (this.gamePaused && !this.gameOver && !this.gameWon) {
+            this.renderer.drawOverlay('ПАУЗА', '#ffff00');
+        }
+        if (this.gameOver) {
+            this.renderer.drawOverlay('ИГРА ОКОНЧЕНА', '#ff0000');
+        }
+        if (this.gameWon) {
+            this.renderer.drawOverlay('ПОБЕДА!', '#00ff00');
+        }
+    }
+}
+
+===========================================
+📁 Файл: ./js/ghosts.js
+📅 Дата: 2026-07-16 18:49:23.217854211 +0300
+📏 Размер: 13.70 KB
+📝 Тип: C++ source, Unicode text, UTF-8 text
+📊 Строк: 436
+===========================================
+
+class Ghost {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.dx = Math.random() > 0.5 ? 1 : -1;
+        this.dy = 0;
+        this.type = type;
+        this.trail = [];
+        this.moveDelay = 0;
+        this.stealTimer = 0;
+        
+        if (Math.random() > 0.5) {
+            this.dx = 0;
+            this.dy = Math.random() > 0.5 ? 1 : -1;
+        }
+    }
+    
+    move(grid, targetX, targetY, hamsterIsOutside, hamsterPath, timestamp) {
+        if (this.type === 'snake') {
+            this.trail.push({ x: this.x, y: this.y });
+            if (this.trail.length > 10) this.trail.shift();
+        }
+        
+        switch(this.type) {
+            case 'chaser':
+                this.moveChaser(grid, targetX, targetY, hamsterIsOutside);
+                break;
+            case 'patrol':
+                this.movePatrol(grid, targetX, targetY, hamsterPath);
+                break;
+            case 'snake':
+                this.moveSnake(grid, targetX, targetY);
+                break;
+            case 'thief':
+                return this.moveThief(grid, timestamp);
+        }
+        return null;
+    }
+    
+    moveThief(grid, timestamp) {
+        // Медленное движение
+        this.moveDelay++;
+        if (this.moveDelay >= CONFIG.THIEF_MOVE_DELAY) {
+            this.moveDelay = 0;
+            this.doMoveThief(grid);
+        }
+        
+        // Кража по таймеру
+        if (!this.stealTimer) this.stealTimer = timestamp;
+        if (timestamp - this.stealTimer >= CONFIG.THIEF_STEAL_INTERVAL) {
+            this.stealTimer = timestamp;
+            const size = CONFIG.THIEF_STEAL_SIZE;
+            const half = Math.floor(size / 2);
+            let stolen = 0;
+            const cells = [];
+            
+            for (let dy = -half; dy <= half; dy++) {
+                for (let dx = -half; dx <= half; dx++) {
+                    const sx = this.x + dx;
+                    const sy = this.y + dy;
+                    
+                    if (sx > 0 && sx < CONFIG.COLS - 1 && sy > 0 && sy < CONFIG.ROWS - 1) {
+                        if (grid.grid[sy][sx] === 1) {
+                            grid.grid[sy][sx] = 0;
+                            grid.capturedCount--;
+                            stolen++;
+                            cells.push({ x: sx, y: sy });
+                        }
+                    }
+                }
+            }
+            
+            if (stolen > 0) {
+                return { stolen, cells };
+            }
+        }
+        return null;
+    }
+    
+    doMoveThief(grid) {
+        const directions = [
+            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+        ];
+        
+        let bestDir = null;
+        let bestScore = -Infinity;
+        
+        for (const dir of directions) {
+            if (dir.dx === -this.dx && dir.dy === -this.dy) continue;
+            
+            const nx = this.x + dir.dx;
+            const ny = this.y + dir.dy;
+            
+            if (!grid.isCaptured(nx, ny)) continue;
+            
+            let freeNeighbors = 0;
+            for (const d of directions) {
+                if (!grid.isCaptured(nx + d.dx, ny + d.dy)) freeNeighbors++;
+            }
+            
+            const score = freeNeighbors >= 1 && freeNeighbors <= 2 ? 10 : 
+                         freeNeighbors === 0 ? -5 : 3;
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestDir = dir;
+            }
+        }
+        
+        if (!bestDir) {
+            for (const dir of directions) {
+                const nx = this.x + dir.dx;
+                const ny = this.y + dir.dy;
+                if (grid.isCaptured(nx, ny)) {
+                    bestDir = dir;
+                    break;
+                }
+            }
+        }
+        
+        if (bestDir) {
+            this.dx = bestDir.dx;
+            this.dy = bestDir.dy;
+            this.x += this.dx;
+            this.y += this.dy;
+        }
+    }
+    
+    moveChaser(grid, targetX, targetY, hamsterIsOutside) {
+        const dist = Math.hypot(targetX - this.x, targetY - this.y);
+        
+        if (hamsterIsOutside) {
+            if (dist < 5) {
+                if (Math.random() < 0.95) this.moveToward(targetX, targetY);
+            } else if (dist < 12) {
+                if (Math.random() < 0.8) this.moveToward(targetX, targetY);
+                else this.randomDirection(grid);
+            } else {
+                if (Math.random() < 0.6) this.moveToward(targetX, targetY);
+                else this.randomDirection(grid);
+            }
+        } else {
+            this.movePatrol(grid, targetX, targetY, []);
+            return;
+        }
+        
+        this.applyMovement(grid);
+    }
+    
+    moveToward(targetX, targetY) {
+        const dx = targetX - this.x;
+        const dy = targetY - this.y;
+        
+        if (Math.abs(dx) > Math.abs(dy)) {
+            this.dx = dx > 0 ? 1 : -1;
+            this.dy = 0;
+        } else {
+            this.dy = dy > 0 ? 1 : -1;
+            this.dx = 0;
+        }
+    }
+    
+    movePatrol(grid, targetX, targetY, hamsterPath) {
+        const directions = [
+            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+        ];
+        
+        if (hamsterPath && hamsterPath.length > 0) {
+            const lastPath = hamsterPath[hamsterPath.length - 1];
+            const distToPath = Math.hypot(lastPath.x - this.x, lastPath.y - this.y);
+            
+            if (distToPath < 5 && Math.random() < 0.7) {
+                const dx = lastPath.x - this.x;
+                const dy = lastPath.y - this.y;
+                
+                let dir;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    dir = { dx: dx > 0 ? 1 : -1, dy: 0 };
+                } else {
+                    dir = { dx: 0, dy: dy > 0 ? 1 : -1 };
+                }
+                
+                if (!grid.isCaptured(this.x + dir.dx, this.y + dir.dy)) {
+                    this.dx = dir.dx;
+                    this.dy = dir.dy;
+                    this.applyMovement(grid);
+                    return;
+                }
+            }
+        }
+        
+        let bestDir = { dx: this.dx, dy: this.dy };
+        let bestScore = -Infinity;
+        
+        for (const dir of directions) {
+            if (dir.dx === -this.dx && dir.dy === -this.dy) continue;
+            
+            const nx = this.x + dir.dx;
+            const ny = this.y + dir.dy;
+            
+            if (grid.isCaptured(nx, ny)) continue;
+            
+            let capturedNeighbors = 0;
+            for (const d of directions) {
+                if (grid.isCaptured(nx + d.dx, ny + d.dy)) capturedNeighbors++;
+            }
+            
+            const score = capturedNeighbors >= 1 && capturedNeighbors <= 2 ? 10 : 
+                         capturedNeighbors === 3 ? 5 : 0;
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestDir = dir;
+            }
+        }
+        
+        if (bestScore <= 0) {
+            const freeDirs = directions.filter(d => !grid.isCaptured(this.x + d.dx, this.y + d.dy));
+            if (freeDirs.length > 0) {
+                bestDir = freeDirs[Math.floor(Math.random() * freeDirs.length)];
+            }
+        }
+        
+        this.dx = bestDir.dx;
+        this.dy = bestDir.dy;
+        this.applyMovement(grid);
+    }
+    
+    moveSnake(grid, targetX, targetY) {
+        const dist = Math.hypot(targetX - this.x, targetY - this.y);
+        
+        if (dist < 6) {
+            if (Math.random() < 0.8) {
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    this.dx = 0;
+                    this.dy = Math.random() > 0.5 ? 1 : -1;
+                } else {
+                    this.dy = 0;
+                    this.dx = Math.random() > 0.5 ? 1 : -1;
+                }
+            } else {
+                this.randomDirection(grid);
+            }
+        } else if (Math.random() < 0.5) {
+            const dx = targetX - this.x;
+            const dy = targetY - this.y;
+            
+            if (Math.abs(dx) > Math.abs(dy)) {
+                this.dx = dx > 0 ? 1 : -1;
+                this.dy = 0;
+            } else {
+                this.dy = dy > 0 ? 1 : -1;
+                this.dx = 0;
+            }
+        } else {
+            this.randomDirection(grid);
+        }
+        
+        this.applyMovement(grid);
+    }
+    
+    randomDirection(grid) {
+        const dirs = [
+            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+        ];
+        
+        const freeDirs = dirs.filter(d => {
+            const nx = this.x + d.dx;
+            const ny = this.y + d.dy;
+            return !grid.isCaptured(nx, ny) && !(d.dx === -this.dx && d.dy === -this.dy);
+        });
+        
+        if (freeDirs.length > 0) {
+            const dir = freeDirs[Math.floor(Math.random() * freeDirs.length)];
+            this.dx = dir.dx;
+            this.dy = dir.dy;
+        }
+    }
+    
+    applyMovement(grid) {
+        let newX = this.x + this.dx;
+        let newY = this.y + this.dy;
+        
+        if (grid.isCaptured(newX, newY)) {
+            const tempDx = this.dx;
+            const tempDy = this.dy;
+            
+            this.dx = -tempDx;
+            this.dy = -tempDy;
+            newX = this.x + this.dx;
+            newY = this.y + this.dy;
+            
+            if (grid.isCaptured(newX, newY)) {
+                const dirs = [
+                    { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+                    { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+                ];
+                let found = false;
+                for (const dir of dirs) {
+                    const tx = this.x + dir.dx;
+                    const ty = this.y + dir.dy;
+                    if (!grid.isCaptured(tx, ty)) {
+                        this.dx = dir.dx;
+                        this.dy = dir.dy;
+                        newX = tx;
+                        newY = ty;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    this.dx = 0;
+                    this.dy = 0;
+                    return;
+                }
+            }
+        }
+        
+        this.x = newX;
+        this.y = newY;
+    }
+    
+    getPosition() {
+        return { x: this.x, y: this.y };
+    }
+}
+
+class GhostManager {
+    constructor() {
+        this.ghosts = [];
+        this.thiefAdded = false;
+    }
+    
+    reset(hamsterX, hamsterY, grid) {
+        this.ghosts = [];
+        this.thiefAdded = false;
+        this.addGhost(hamsterX, hamsterY, grid, 'chaser');
+        this.addGhost(hamsterX, hamsterY, grid, 'patrol');
+        this.addGhost(hamsterX, hamsterY, grid, 'snake');
+        this.addGhost(hamsterX, hamsterY, grid, 'thief'); // вор сразу
+        this.thiefAdded = true;
+    }
+    
+    addGhost(hamsterX, hamsterY, grid, type) {
+        if (this.ghosts.length >= CONFIG.MAX_GHOSTS) return;
+        
+        let gx, gy;
+        let attempts = 0;
+        
+        if (type === 'thief') {
+            do {
+                gx = Math.floor(Math.random() * (CONFIG.COLS - 6)) + 3;
+                gy = Math.floor(Math.random() * (CONFIG.ROWS - 6)) + 3;
+                attempts++;
+            } while (!grid.isCaptured(gx, gy) && attempts < 500);
+            
+            if (attempts >= 500) {
+                for (let y = 2; y < CONFIG.ROWS - 2; y++) {
+                    for (let x = 2; x < CONFIG.COLS - 2; x++) {
+                        if (grid.isCaptured(x, y)) {
+                            gx = x;
+                            gy = y;
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            do {
+                gx = Math.floor(Math.random() * (CONFIG.COLS - 6)) + 3;
+                gy = Math.floor(Math.random() * (CONFIG.ROWS - 6)) + 3;
+                attempts++;
+            } while ((grid.isCaptured(gx, gy) || 
+                      (Math.abs(gx - hamsterX) < 5 && Math.abs(gy - hamsterY) < 5)) 
+                      && attempts < 100);
+        }
+        
+        if (attempts < 500) {
+            this.ghosts.push(new Ghost(gx, gy, type));
+        }
+    }
+    
+    checkThresholds(percent, hamsterX, hamsterY, grid) {
+        if (percent >= CONFIG.GHOST_THRESHOLD_1 && this.ghosts.length < 5) {
+            this.addGhost(hamsterX, hamsterY, grid, 'patrol');
+        }
+        if (percent >= CONFIG.GHOST_THRESHOLD_2 && this.ghosts.length < 6) {
+            this.addGhost(hamsterX, hamsterY, grid, 'snake');
+        }
+        if (percent >= CONFIG.GHOST_THRESHOLD_3 && this.ghosts.length < 7) {
+            this.addGhost(hamsterX, hamsterY, grid, 'chaser');
+        }
+    }
+    
+    update(grid, targetX, targetY, hamsterIsOutside, hamsterPath, timestamp) {
+        for (const ghost of this.ghosts) {
+            const stealResult = ghost.move(grid, targetX, targetY, hamsterIsOutside, hamsterPath, timestamp);
+            
+            if (stealResult && stealResult.stolen > 0 && window._onSteal) {
+                window._onSteal(stealResult.cells);
+            }
+        }
+    }
+    
+    checkCollision(x, y) {
+        for (const ghost of this.ghosts) {
+            if (ghost.type === 'thief') continue;
+            
+            if (ghost.x === x && ghost.y === y) {
+                return true;
+            }
+            
+            if (ghost.type === 'snake') {
+                for (const trail of ghost.trail) {
+                    if (trail.x === x && trail.y === y) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    count() {
+        return this.ghosts.length;
+    }
+    
+    getAll() {
+        return this.ghosts;
+    }
+}
+
+===========================================
+📁 Файл: ./js/grid.js
+📅 Дата: 2026-07-09 22:00:36.102221187 +0300
+📏 Размер: 5.91 KB
+📝 Тип: C++ source, Unicode text, UTF-8 text
+📊 Строк: 161
+===========================================
+
+class Grid {
+    constructor() {
+        this.grid = [];
+        this.capturedCount = 0;
+        this.reset();
+    }
+    
+    reset() {
+        this.grid = [];
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+            this.grid[y] = [];
+            for (let x = 0; x < CONFIG.COLS; x++) {
+                if (x === 0 || x === CONFIG.COLS - 1 || y === 0 || y === CONFIG.ROWS - 1) {
+                    this.grid[y][x] = 2; // граница
+                } else {
+                    this.grid[y][x] = 0; // свободно
+                }
+            }
+        }
+        this.capturedCount = (CONFIG.COLS * 2 + CONFIG.ROWS * 2 - 4);
+    }
+    
+    capture(x, y) {
+        if (this.grid[y][x] === 0) {
+            this.grid[y][x] = 1;
+            this.capturedCount++;
+        }
+    }
+    
+    isCaptured(x, y) {
+        if (x < 0 || x >= CONFIG.COLS || y < 0 || y >= CONFIG.ROWS) return true;
+        return this.grid[y][x] === 1 || this.grid[y][x] === 2;
+    }
+    
+    isFree(x, y) {
+        if (x < 0 || x >= CONFIG.COLS || y < 0 || y >= CONFIG.ROWS) return false;
+        return this.grid[y][x] === 0;
+    }
+    
+    getPercent() {
+        return Math.floor((this.capturedCount / (CONFIG.COLS * CONFIG.ROWS)) * 100);
+    }
+    
+    findSafeSpot(ghosts, minDist) {
+        const spots = [];
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+            for (let x = 0; x < CONFIG.COLS; x++) {
+                if (this.isCaptured(x, y)) {
+                    let ghostNearby = false;
+                    for (const ghost of ghosts) {
+                        if (Math.abs(ghost.x - x) <= minDist && Math.abs(ghost.y - y) <= minDist) {
+                            ghostNearby = true;
+                            break;
+                        }
+                    }
+                    if (!ghostNearby) {
+                        spots.push({ x, y });
+                    }
+                }
+            }
+        }
+        return spots;
+    }
+    
+    // Flood fill для захвата замкнутой области
+    captureEnclosedArea(pathCells) {
+        // Создаем временную карту с путем
+        const tempGrid = this.grid.map(row => [...row]);
+        
+        // Отмечаем путь как границу
+        for (const cell of pathCells) {
+            if (cell.x >= 0 && cell.x < CONFIG.COLS && cell.y >= 0 && cell.y < CONFIG.ROWS) {
+                tempGrid[cell.y][cell.x] = 2; // временная граница
+            }
+        }
+        
+        // Находим область, которая закрашивается
+        // Проверяем соседние клетки пути - какая сторона меньше
+        const captured = [];
+        const killedGhosts = [];
+        
+        // Проверяем 4 направления от середины пути
+        const midPath = pathCells[Math.floor(pathCells.length / 2)];
+        
+        const directions = [
+            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+        ];
+        
+        for (const dir of directions) {
+            const startX = midPath.x + dir.dx;
+            const startY = midPath.y + dir.dy;
+            
+            if (startX < 0 || startX >= CONFIG.COLS || startY < 0 || startY >= CONFIG.ROWS) continue;
+            if (tempGrid[startY][startX] !== 0) continue;
+            
+            // Flood fill
+            const area = [];
+            const queue = [{ x: startX, y: startY }];
+            const visited = new Set();
+            
+            while (queue.length > 0) {
+                const { x, y } = queue.shift();
+                const key = `${x},${y}`;
+                
+                if (visited.has(key)) continue;
+                if (x < 0 || x >= CONFIG.COLS || y < 0 || y >= CONFIG.ROWS) continue;
+                if (tempGrid[y][x] !== 0) continue;
+                
+                visited.add(key);
+                area.push({ x, y });
+                
+                queue.push({ x: x + 1, y });
+                queue.push({ x: x - 1, y });
+                queue.push({ x, y: y + 1 });
+                queue.push({ x, y: y - 1 });
+            }
+            
+            // Если область не граничит с краем - это замкнутая область
+            let touchesEdge = false;
+            for (const cell of area) {
+                if (cell.x === 0 || cell.x === CONFIG.COLS - 1 || 
+                    cell.y === 0 || cell.y === CONFIG.ROWS - 1) {
+                    touchesEdge = true;
+                    break;
+                }
+                // Проверяем соседей
+                for (const d of directions) {
+                    const nx = cell.x + d.dx;
+                    const ny = cell.y + d.dy;
+                    if (nx < 0 || nx >= CONFIG.COLS || ny < 0 || ny >= CONFIG.ROWS) {
+                        touchesEdge = true;
+                        break;
+                    }
+                }
+                if (touchesEdge) break;
+            }
+            
+            // Если не касается края и меньше 50% поля - захватываем
+            if (!touchesEdge && area.length > 0 && area.length < (CONFIG.COLS * CONFIG.ROWS) * 0.5) {
+                for (const cell of area) {
+                    if (this.grid[cell.y][cell.x] === 0) {
+                        this.grid[cell.y][cell.x] = 1;
+                        this.capturedCount++;
+                        captured.push(cell);
+                    }
+                }
+                // Захватываем и сам путь
+                for (const cell of pathCells) {
+                    if (this.grid[cell.y][cell.x] === 0) {
+                        this.grid[cell.y][cell.x] = 1;
+                        this.capturedCount++;
+                        captured.push(cell);
+                    }
+                }
+                break;
+            }
+        }
+        
+        return { captured: captured.length, killedGhosts };
+    }
+}
+
+===========================================
+📁 Файл: ./js/hamster.js
+📅 Дата: 2026-07-09 22:01:01.550821351 +0300
+📏 Размер: 2.82 KB
+📝 Тип: C++ source, Unicode text, UTF-8 text
+📊 Строк: 96
+===========================================
+
+class Hamster {
+    constructor() {
+        this.reset();
+    }
+    
+    reset() {
+        this.x = Math.floor(CONFIG.COLS / 2);
+        this.y = Math.floor(CONFIG.ROWS / 2);
+        this.dx = 0;
+        this.dy = 0;
+        this.nextDx = 0;
+        this.nextDy = 0;
+        this.path = [];
+        this.isOutside = false;
+    }
+    
+    setDirection(dx, dy) {
+        if (dx === -this.dx && dy === -this.dy && (dx !== 0 || dy !== 0)) return;
+        this.nextDx = dx;
+        this.nextDy = dy;
+    }
+    
+    update(grid) {
+        if (this.nextDx !== 0 || this.nextDy !== 0) {
+            this.dx = this.nextDx;
+            this.dy = this.nextDy;
+        }
+        
+        if (this.dx === 0 && this.dy === 0) return null;
+        
+        const newX = this.x + this.dx;
+        const newY = this.y + this.dy;
+        
+        if (newX < 0 || newX >= CONFIG.COLS || newY < 0 || newY >= CONFIG.ROWS) return null;
+        
+        // Возвращение на территорию - захват области
+        if (this.isOutside && grid.isCaptured(newX, newY)) {
+            this.x = newX;
+            this.y = newY;
+            
+            // Захватываем замкнутую область
+            const result = grid.captureEnclosedArea(this.path);
+            
+            this.path = [];
+            this.isOutside = false;
+            
+            return { 
+                type: 'capture', 
+                count: result.captured,
+                killedGhosts: result.killedGhosts 
+            };
+        }
+        
+        // Выход с территории
+        if (!this.isOutside && grid.isCaptured(this.x, this.y) && !grid.isCaptured(newX, newY)) {
+            this.isOutside = true;
+            this.path = [{ x: newX, y: newY }];
+            this.x = newX;
+            this.y = newY;
+            return { type: 'exit' };
+        }
+        
+        // Движение снаружи
+        if (this.isOutside && !grid.isCaptured(newX, newY)) {
+            let alreadyInPath = false;
+            for (const cell of this.path) {
+                if (cell.x === newX && cell.y === newY) {
+                    alreadyInPath = true;
+                    break;
+                }
+            }
+            if (!alreadyInPath) {
+                this.path.push({ x: newX, y: newY });
+            }
+            this.x = newX;
+            this.y = newY;
+            return { type: 'move' };
+        }
+        
+        // Движение по территории
+        if (!this.isOutside && grid.isCaptured(this.x, this.y) && grid.isCaptured(newX, newY)) {
+            this.x = newX;
+            this.y = newY;
+            return { type: 'move' };
+        }
+        
+        return null;
+    }
+    
+    getPosition() {
+        return { x: this.x, y: this.y };
+    }
+    
+    isOnTerritory(grid) {
+        return grid.isCaptured(this.x, this.y);
+    }
+}
+
+===========================================
+📁 Файл: ./js/main.js
+📅 Дата: 2026-07-16 19:03:23.146017050 +0300
+📏 Размер: 1.68 KB
+📝 Тип: Unicode text, UTF-8 text
+📊 Строк: 51
+===========================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    const game = new Game();
+    game.init();
+    
+    // Рекорд
+    const highscoreValue = document.getElementById('highscoreValue');
+    const saved = localStorage.getItem('hamster_highscore') || 0;
+    if (highscoreValue) {
+        highscoreValue.textContent = saved + '%';
+    }
+    
+    window.restartGame = () => game.init();
+    window.togglePause = () => game.togglePause();
+    
+    // Мобильные кнопки
+    const btnUp = document.getElementById('btnUp');
+    const btnDown = document.getElementById('btnDown');
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    
+    function addMoveButton(btn, dx, dy) {
+        if (!btn) return;
+        btn.style.touchAction = 'none';
+        
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            game.hamster.setDirection(dx, dy);
+        }, { passive: false });
+        
+        btn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            game.hamster.setDirection(dx, dy);
+        });
+    }
+    
+    addMoveButton(btnUp, 0, -1);
+    addMoveButton(btnDown, 0, 1);
+    addMoveButton(btnLeft, -1, 0);
+    addMoveButton(btnRight, 1, 0);
+    
+    // Предотвращение скролла на кнопках
+    const gameWrapper = document.querySelector('.game-wrapper');
+    if (gameWrapper) {
+        gameWrapper.addEventListener('touchmove', (e) => {
+            if (e.target.closest('.control-btn')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
+});
+
+===========================================
+📁 Файл: ./js/renderer.js
+📅 Дата: 2026-07-16 18:36:59.833611507 +0300
+📏 Размер: 8.96 KB
+📝 Тип: C++ source, Unicode text, UTF-8 text
+📊 Строк: 255
+===========================================
+
+class Renderer {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.cellSize = 0;
+        this.stealFlashCells = [];
+        this.stealFlashTimer = 0;
+        this.resize();
+    }
+    
+    resize() {
+        const maxWidth = Math.min(window.innerWidth - 30, 500);
+        const maxHeight = Math.min(window.innerHeight - 350, 500);
+        const size = Math.min(maxWidth, maxHeight);
+        this.canvas.width = size;
+        this.canvas.height = size;
+        this.cellSize = size / CONFIG.COLS;
+    }
+    
+    clear() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    
+    drawGrid(grid) {
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+            for (let x = 0; x < CONFIG.COLS; x++) {
+                if (grid.grid[y][x] === 1) {
+                    this.ctx.fillStyle = CONFIG.COLORS.CAPTURED;
+                } else if (grid.grid[y][x] === 2) {
+                    this.ctx.fillStyle = CONFIG.COLORS.BORDER;
+                } else {
+                    continue;
+                }
+                this.ctx.fillRect(
+                    x * this.cellSize, y * this.cellSize,
+                    this.cellSize, this.cellSize
+                );
+            }
+        }
+        
+        // Отрисовка flashing клеток (вор украл)
+        if (this.stealFlashTimer > 0) {
+            const alpha = this.stealFlashTimer / 30;
+            this.ctx.fillStyle = `rgba(255, 235, 59, ${alpha})`;
+            for (const cell of this.stealFlashCells) {
+                this.ctx.fillRect(
+                    cell.x * this.cellSize, cell.y * this.cellSize,
+                    this.cellSize, this.cellSize
+                );
+            }
+            this.stealFlashTimer--;
+        }
+    }
+    
+    flashSteal(cells) {
+        this.stealFlashCells = cells;
+        this.stealFlashTimer = 15;
+    }
+    
+    drawPath(path) {
+        if (!path || path.length === 0) return;
+        this.ctx.fillStyle = CONFIG.COLORS.PATH;
+        for (const cell of path) {
+            this.ctx.fillRect(
+                cell.x * this.cellSize, cell.y * this.cellSize,
+                this.cellSize, this.cellSize
+            );
+        }
+    }
+    
+    drawGridLines() {
+        this.ctx.strokeStyle = CONFIG.COLORS.GRID_LINE;
+        this.ctx.lineWidth = 0.5;
+        for (let x = 0; x <= CONFIG.COLS; x++) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x * this.cellSize, 0);
+            this.ctx.lineTo(x * this.cellSize, this.canvas.height);
+            this.ctx.stroke();
+        }
+        for (let y = 0; y <= CONFIG.ROWS; y++) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y * this.cellSize);
+            this.ctx.lineTo(this.canvas.width, y * this.cellSize);
+            this.ctx.stroke();
+        }
+    }
+    
+    drawGhost(ghost) {
+        const gx = ghost.x * this.cellSize + this.cellSize / 2;
+        const gy = ghost.y * this.cellSize + this.cellSize / 2;
+        const size = this.cellSize * CONFIG.GHOST_SIZE;
+        
+        // След змейки
+        if (ghost.type === 'snake' && ghost.trail && ghost.trail.length > 0) {
+            this.ctx.fillStyle = 'rgba(255, 100, 100, 0.35)';
+            for (const trail of ghost.trail) {
+                this.ctx.fillRect(
+                    trail.x * this.cellSize + this.cellSize * 0.25,
+                    trail.y * this.cellSize + this.cellSize * 0.25,
+                    this.cellSize * 0.5,
+                    this.cellSize * 0.5
+                );
+            }
+        }
+        
+        // Цвет по типу
+        let color, glowColor;
+        switch(ghost.type) {
+            case 'chaser':
+                color = CONFIG.COLORS.GHOST_CHASER;
+                glowColor = CONFIG.COLORS.GHOST_GLOW;
+                break;
+            case 'patrol':
+                color = CONFIG.COLORS.GHOST_PATROL;
+                glowColor = CONFIG.COLORS.GHOST_PATROL;
+                break;
+            case 'snake':
+                color = CONFIG.COLORS.GHOST_SNAKE;
+                glowColor = CONFIG.COLORS.GHOST_SNAKE;
+                break;
+            case 'thief':
+                color = CONFIG.COLORS.GHOST_THIEF;
+                glowColor = CONFIG.COLORS.THIEF_GLOW;
+                break;
+            default:
+                color = CONFIG.COLORS.GHOST_CHASER;
+                glowColor = CONFIG.COLORS.GHOST_GLOW;
+        }
+        
+        this.ctx.shadowColor = glowColor;
+        this.ctx.shadowBlur = 15;
+        
+        // Тело призрака
+        this.ctx.fillStyle = color;
+        this.ctx.beginPath();
+        this.ctx.arc(gx, gy - size * 0.25, size, Math.PI, 0);
+        this.ctx.lineTo(gx + size, gy + size * 0.6);
+        
+        const waves = 3;
+        const waveWidth = (size * 2) / waves;
+        for (let i = 0; i < waves; i++) {
+            const wx = gx - size + i * waveWidth;
+            this.ctx.lineTo(wx + waveWidth / 2, gy + size * 0.25);
+            this.ctx.lineTo(wx + waveWidth, gy + size * 0.6);
+        }
+        
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.shadowBlur = 0;
+        
+        // Иконка вора
+        if (ghost.type === 'thief') {
+            this.ctx.fillStyle = '#000';
+            this.ctx.font = `${this.cellSize * 0.5}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('🔑', gx, gy - size * 0.7);
+        }
+        
+        // Глаза
+        const eyeSize = this.cellSize * CONFIG.EYE_SIZE;
+        const pupilSize = this.cellSize * CONFIG.PUPIL_SIZE;
+        
+        this.ctx.fillStyle = 'white';
+        this.ctx.beginPath();
+        this.ctx.arc(gx - size * 0.35, gy - size * 0.3, eyeSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(gx + size * 0.35, gy - size * 0.3, eyeSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Зрачки
+        this.ctx.fillStyle = 'black';
+        this.ctx.beginPath();
+        this.ctx.arc(gx - size * 0.3, gy - size * 0.3, pupilSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(gx + size * 0.4, gy - size * 0.3, pupilSize, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+    
+    drawHamster(hamster) {
+        const hx = hamster.x * this.cellSize + this.cellSize / 2;
+        const hy = hamster.y * this.cellSize + this.cellSize / 2;
+        const size = this.cellSize * CONFIG.HAMSTER_SIZE;
+        
+        this.ctx.shadowColor = '#ffaa00';
+        this.ctx.shadowBlur = 15;
+        
+        // Тело
+        this.ctx.fillStyle = CONFIG.COLORS.HAMSTER;
+        this.ctx.beginPath();
+        this.ctx.arc(hx, hy, size, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Уши
+        const earSize = size * 0.4;
+        this.ctx.fillStyle = CONFIG.COLORS.HAMSTER_EAR;
+        this.ctx.beginPath();
+        this.ctx.arc(hx - size * 0.55, hy - size * 0.8, earSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(hx + size * 0.55, hy - size * 0.8, earSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Внутренняя часть ушей
+        this.ctx.fillStyle = CONFIG.COLORS.HAMSTER_FACE;
+        this.ctx.beginPath();
+        this.ctx.arc(hx - size * 0.55, hy - size * 0.8, earSize * 0.55, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(hx + size * 0.55, hy - size * 0.8, earSize * 0.55, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Мордочка
+        this.ctx.fillStyle = CONFIG.COLORS.HAMSTER_FACE;
+        this.ctx.beginPath();
+        this.ctx.ellipse(hx, hy + size * 0.15, size * 0.5, size * 0.35, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Нос
+        this.ctx.fillStyle = CONFIG.COLORS.HAMSTER_NOSE;
+        this.ctx.beginPath();
+        this.ctx.arc(hx, hy + size * 0.1, size * 0.15, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        this.ctx.shadowBlur = 0;
+        
+        // Глаза
+        const eyeSize = size * 0.18;
+        this.ctx.fillStyle = 'black';
+        this.ctx.beginPath();
+        this.ctx.arc(hx - size * 0.3, hy - size * 0.15, eyeSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(hx + size * 0.3, hy - size * 0.15, eyeSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Блики
+        this.ctx.fillStyle = 'white';
+        this.ctx.beginPath();
+        this.ctx.arc(hx - size * 0.25, hy - size * 0.2, eyeSize * 0.4, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(hx + size * 0.35, hy - size * 0.2, eyeSize * 0.4, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+    
+    drawOverlay(text, color) {
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = color;
+        this.ctx.font = 'bold 24px monospace';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(text, this.canvas.width / 2, this.canvas.height / 2);
+    }
+}
+
+===========================================
+📁 Файл: ./package.json
+📅 Дата: 2026-07-16 18:21:30.242369651 +0300
+📏 Размер: 221 bytes
+📝 Тип: JSON text data
+📊 Строк: 12
+===========================================
+
+{
+  "name": "hamster",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
+
+
+===========================================
+📊 ИТОГОВАЯ СТАТИСТИКА
+===========================================
+✅ Успешно обработано файлов: 11
+⏭️  Пропущено файлов: 4
+❌ Ошибок чтения: 0
+📏 Общий размер исходных файлов: 54.78 KB
+📊 Строк в исходных файлах: 1 739
+📄 Строк в итоговом файле: 1 856
+📅 Завершено: Чт 16 июл 2026 19:56:57 MSK
+===========================================

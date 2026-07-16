@@ -42,6 +42,11 @@ class Game {
         this.gameOver = false;
         this.gameWon = false;
         
+        // ДОБАВЛЕНО: обработчик кражи вора
+        window._onSteal = (cells) => {
+            this.renderer.flashSteal(cells);
+        };
+        
         this.updateUI();
         
         if (this.uiPause) this.uiPause.textContent = '⏸️ Пауза';
@@ -127,13 +132,14 @@ class Game {
             }
         }
         
-        // Передаём isOutside и path в update
+        // ДОБАВЛЕНО: Date.now() для вора
         this.ghostManager.update(
             this.grid, 
             this.hamster.x, 
             this.hamster.y, 
             this.hamster.isOutside, 
-            this.hamster.path
+            this.hamster.path,
+            Date.now()
         );
         
         if (this.ghostManager.checkCollision(this.hamster.x, this.hamster.y)) {
