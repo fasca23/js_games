@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <title>Шахматы</title>
 <style>
-  body { font-family: sans-serif; display: flex; flex-direction: column;
-         align-items: center; background: #222; color: #eee; margin: 20px; }
+  body { font-family: sans-serif; display: flex; justify-content: center;
+         align-items: flex-start; gap: 20px; background: #222; color: #eee;
+         margin: 20px; }
+  #main { display: flex; flex-direction: column; align-items: center; }
   #board { display: grid; grid-template-columns: repeat(8, 64px);
            grid-template-rows: repeat(8, 64px); border: 3px solid #555;
            user-select: none; }
@@ -19,27 +21,72 @@
   .capture::after { background: rgba(231,76,60,.7); width: 46px; height: 46px; }
   .check { box-shadow: inset 0 0 0 4px #e74c3c; }
   #status { margin: 16px; font-size: 20px; min-height: 24px; }
-  button { padding: 8px 16px; font-size: 16px; cursor: pointer; margin: 0 4px; }
+  #controls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+              max-width: 520px; }
+  button { padding: 8px 14px; font-size: 15px; cursor: pointer; }
+  button:disabled { opacity: .4; cursor: default; }
   .white-piece { color: #fff;
                  text-shadow: 0 0 1px #000, 0 0 1px #000, 0 0 1px #000,
                               0 0 2px #000, 0 0 2px #000; }
   .black-piece { color: #1a1a1a;
                  text-shadow: 0 0 1px #fff, 0 0 1px #fff, 0 0 2px #fff; }
   .enemy-flip { transform: rotate(180deg); display: inline-block; }
+
+  /* ---------- панель истории ---------- */
+  #sidebar { width: 260px; background: #2c2c2c; border: 1px solid #444;
+             border-radius: 4px; display: flex; flex-direction: column;
+             max-height: 560px; }
+  #sidebar h3 { margin: 0; padding: 10px 12px; font-size: 15px;
+                border-bottom: 1px solid #444; background: #333;
+                border-radius: 4px 4px 0 0; }
+  #movelist { overflow-y: auto; flex: 1; padding: 6px 0; font-family: monospace;
+              font-size: 14px; }
+  .move-row { display: flex; align-items: center; padding: 0 8px; }
+  .move-row:nth-child(even) { background: rgba(255,255,255,.03); }
+  .move-row .num { width: 32px; color: #888; text-align: right;
+                   padding-right: 6px; flex-shrink: 0; }
+  .move { display: inline-block; min-width: 52px; padding: 4px 8px;
+          margin: 1px; border-radius: 3px; cursor: pointer; }
+  .move:hover { background: #444; }
+  .move.active { background: #3498db; color: #fff; }
+  .move.start { font-family: sans-serif; min-width: auto; }
+  #viewBadge { display: none; background: #b8860b; color: #fff; padding: 6px 10px;
+               text-align: center; font-size: 13px; }
+  #viewBadge.visible { display: block; }
 </style>
 </head>
 <body>
-<div id="status"></div>
-<div id="board"></div>
-<div style="margin-top:16px">
-  <button id="undo">Отменить ход</button>
-  <button id="flip">Развернуть доску</button>
-  <button id="flipOpp">Перевернуть фигуры противника</button>
+
+<div id="main">
+  <div id="status"></div>
+  <div id="board"></div>
+  <div id="controls" style="margin-top:16px">
+    <button id="undo">Отменить ход</button>
+    <button id="flip">Развернуть доску</button>
+    <button id="flipOpp">Перевернуть фигуры противника</button>
+    <button id="newGame">Новая партия</button>
+  </div>
+  <div id="controls" style="margin-top:8px">
+    <button id="navStart" title="Начало (Home)">⏮</button>
+    <button id="navPrev"  title="Назад (←)">◀</button>
+    <button id="navNext"  title="Вперёд (→)">▶</button>
+    <button id="navEnd"   title="К концу (End)">⏭</button>
+  </div>
+</div>
+
+<div id="sidebar">
+  <h3>История ходов</h3>
+  <div id="viewBadge">Режим просмотра — ходы заблокированы</div>
+  <div id="movelist"></div>
 </div>
 
 <script>
-// Обе стороны используют заливные глифы, различие — только в цвете (CSS).
 const GLYPH = { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' };
+
+const LS_STATES  = 'chess_states';   // массив позиций (states[0] = начальная)
+const LS_MOVES   = 'chess_moves';    // массив строк нотации ("e2e4", ...)
+const LS_FLIPPED = 'chess_flipped';
+const LS_FLIPOPP = 'chess_flipOpp';
 
 function initialState() {
   const back = ['r','n','b','q','k','b','n','r'];
@@ -52,15 +99,22 @@ function initialState() {
   }
   return { board, turn:'w',
            castling:{wK:true,wQ:true,bK:true,bQ:true},
-           enPassant:null, halfmove:0, history:[] };
+           enPassant:null, halfmove:0 };
 }
 
-let state = load() || initialState();
+// ---------- Глобальное состояние ----------
+let states = [];      // массив позиций
+let moves  = [];      // moves[i] — нотация хода, приведшего к states[i+1]
+let viewIndex = 0;    // какой индекс states показываем
 let selected = null;
 let legalForSelected = [];
 let gameOver = false;
-let flipped = localStorage.getItem('chess_flipped') === '1';
-let flipOpponent = localStorage.getItem('chess_flipOpp') === '1';
+let flipped = false;
+let flipOpponent = false;
+
+function currentState() { return states[states.length - 1]; }
+function viewState()    { return states[viewIndex]; }
+function isViewing()    { return viewIndex !== states.length - 1; }
 
 // ---------- Ходы ----------
 function inBounds(r,c){ return r>=0&&r<8&&c>=0&&c<8; }
@@ -156,14 +210,22 @@ function inCheck(s, color) {
   return k ? isAttacked(s, k[0], k[1], opp(color)) : false;
 }
 
-function applyMove(s, m) {
+function cloneState(s) {
+  return { board: s.board.map(row => row.map(x => x ? {...x} : null)),
+           turn: s.turn,
+           castling: { ...s.castling },
+           enPassant: s.enPassant ? [...s.enPassant] : null,
+           halfmove: s.halfmove };
+}
+
+// Возвращает НОВОЕ состояние, не мутирует вход.
+function applyMove(sIn, m) {
+  const s = cloneState(sIn);
   const [fr,fc] = m.from, [tr,tc] = m.to;
   const piece = s.board[fr][fc];
   const captured = s.board[tr][tc];
 
-  if (m.enPassant) {
-    s.board[fr][tc] = null;
-  }
+  if (m.enPassant) s.board[fr][tc] = null;
 
   s.board[tr][tc] = piece;
   s.board[fr][fc] = null;
@@ -198,16 +260,16 @@ function applyMove(s, m) {
 
   s.enPassant = m.doublePush ? [(fr+tr)/2, fc] : null;
   s.halfmove = (captured || piece.type==='p') ? 0 : s.halfmove+1;
+  s.turn = opp(s.turn);
+  return s;
 }
 
 function legalMovesFrom(s, r, c) {
   const p = s.board[r][c]; if (!p) return [];
   const color = p.color;
   return pseudoMoves(s, r, c).filter(m => {
-    const copy = { ...s, board: s.board.map(row => row.map(x => x ? {...x} : null)),
-                   castling: {...s.castling} };
-    applyMove(copy, m);
-    return !inCheck(copy, color);
+    const next = applyMove(s, m);
+    return !inCheck(next, color);
   });
 }
 
@@ -220,58 +282,98 @@ function allLegalMoves(s, color) {
   return all;
 }
 
+// ---------- Нотация ----------
+function moveToNotation(sBefore, m) {
+  const files = 'abcdefgh';
+  const from = files[m.from[1]] + (8 - m.from[0]);
+  const to   = files[m.to[1]]   + (8 - m.to[0]);
+  let san = from + to;
+  if (m.castle) san = (m.castle === 'wK' || m.castle === 'bK') ? 'O-O' : 'O-O-O';
+  if (m.promotion) {
+    // применим ход, чтобы увидеть выбранную фигуру
+    // (её спросит prompt в applyMove — здесь просто отметим "=")
+    san += '=?';
+  }
+  return san;
+}
+
 // ---------- Игра ----------
 function onCellClick(r, c) {
   if (gameOver) return;
+  if (isViewing()) return; // в просмотре ходить нельзя
+
+  const cur = currentState();
 
   if (selected) {
     const move = legalForSelected.find(m => m.to[0]===r && m.to[1]===c);
     if (move) {
-      state.history.push(JSON.stringify(state));
-      applyMove(state, move);
-      state.turn = opp(state.turn);
+      const next = applyMove(cur, move);
+      const notation = moveToNotation(cur, move);
+      states.push(next);
+      moves.push(notation);
+      viewIndex = states.length - 1;
       selected = null; legalForSelected = [];
-      save(state);
-      render();
-      updateStatus();
+      saveAll();
+      renderAll();
       return;
     }
   }
 
-  const p = state.board[r][c];
-  if (p && p.color===state.turn) {
+  const p = cur.board[r][c];
+  if (p && p.color === cur.turn) {
     selected = [r,c];
-    legalForSelected = legalMovesFrom(state, r, c);
+    legalForSelected = legalMovesFrom(cur, r, c);
   } else {
     selected = null; legalForSelected = [];
   }
-  render();
+  renderAll();
 }
 
 function updateStatus() {
   const statusEl = document.getElementById('status');
-  const inChk = inCheck(state, state.turn);
-  const moves = allLegalMoves(state, state.turn);
-  if (moves.length===0) {
+  const s = viewState();
+  const inChk = inCheck(s, s.turn);
+  const legal = allLegalMoves(s, s.turn);
+
+  if (isViewing()) {
+    statusEl.textContent = `Просмотр: позиция после хода ${viewIndex} из ${states.length - 1}`;
+    return;
+  }
+
+  if (legal.length === 0) {
     gameOver = true;
-    if (inChk) statusEl.textContent = `Мат! Победили ${state.turn==='w'?'чёрные':'белые'}`;
+    if (inChk) statusEl.textContent = `Мат! Победили ${s.turn==='w'?'чёрные':'белые'}`;
     else statusEl.textContent = 'Пат — ничья';
     return;
   }
-  if (state.halfmove >= 100) {
+  if (s.halfmove >= 100) {
     gameOver = true;
     statusEl.textContent = 'Ничья по правилу 50 ходов';
     return;
   }
-  const side = state.turn==='w' ? 'Белые' : 'Чёрные';
+  const side = s.turn==='w' ? 'Белые' : 'Чёрные';
   statusEl.textContent = `Ход: ${side}` + (inChk ? ' — ШАХ!' : '');
 }
 
+// ---------- Навигация ----------
+function goTo(index) {
+  const max = states.length - 1;
+  viewIndex = Math.max(0, Math.min(index, max));
+  selected = null; legalForSelected = [];
+  // если вернулись к концу партии — пересчитать gameOver
+  gameOver = false;
+  if (viewIndex === max) {
+    // updateStatus выставит gameOver при необходимости
+  }
+  renderAll();
+}
+
 // ---------- Рендер ----------
-function render() {
+function renderBoard() {
   const boardEl = document.getElementById('board');
   boardEl.innerHTML = '';
-  const kingPos = inCheck(state, state.turn) ? findKing(state, state.turn) : null;
+  const s = viewState();
+  const kingPos = inCheck(s, s.turn) ? findKing(s, s.turn) : null;
 
   for (let dr = 0; dr < 8; dr++) for (let dc = 0; dc < 8; dc++) {
     const r = flipped ? 7 - dr : dr;
@@ -280,11 +382,11 @@ function render() {
     const cell = document.createElement('div');
     cell.className = 'cell ' + ((r + c) % 2 ? 'dark' : 'light');
 
-    const p = state.board[r][c];
+    const p = s.board[r][c];
     if (p) {
       const span = document.createElement('span');
       span.textContent = GLYPH[p.type];
-      if (flipOpponent && p.color !== state.turn) span.classList.add('enemy-flip');
+      if (flipOpponent && p.color !== s.turn) span.classList.add('enemy-flip');
       cell.appendChild(span);
       cell.classList.add(p.color === 'w' ? 'white-piece' : 'black-piece');
     }
@@ -294,7 +396,7 @@ function render() {
     const hint = legalForSelected.find(m => m.to[0] === r && m.to[1] === c);
     if (hint) {
       cell.classList.add('hint');
-      if (state.board[r][c] || hint.enPassant) cell.classList.add('capture');
+      if (s.board[r][c] || hint.enPassant) cell.classList.add('capture');
     }
 
     cell.onclick = () => onCellClick(r, c);
@@ -302,45 +404,173 @@ function render() {
   }
 }
 
-// ---------- Сохранение ----------
-function save(s) {
-  try { localStorage.setItem('chess', JSON.stringify(s)); } catch(e){}
+function renderMoveList() {
+  const listEl = document.getElementById('movelist');
+  listEl.innerHTML = '';
+
+  // начальная позиция
+  const startRow = document.createElement('div');
+  startRow.className = 'move-row';
+  const startNum = document.createElement('span');
+  startNum.className = 'num'; startNum.textContent = '';
+  const startSpan = document.createElement('span');
+  startSpan.className = 'move start';
+  startSpan.textContent = '⏮ Начало';
+  if (viewIndex === 0) startSpan.classList.add('active');
+  startSpan.onclick = () => goTo(0);
+  startRow.appendChild(startNum);
+  startRow.appendChild(startSpan);
+  listEl.appendChild(startRow);
+
+  for (let i = 0; i < moves.length; i += 2) {
+    const row = document.createElement('div');
+    row.className = 'move-row';
+
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = (i/2 + 1) + '.';
+    row.appendChild(num);
+
+    for (let j = 0; j < 2; j++) {
+      const k = i + j;
+      if (k >= moves.length) break;
+      const span = document.createElement('span');
+      span.className = 'move';
+      span.textContent = moves[k];
+      if (viewIndex === k + 1) span.classList.add('active');
+      span.onclick = () => goTo(k + 1);
+      row.appendChild(span);
+    }
+    listEl.appendChild(row);
+  }
+
+  // бейдж режима просмотра
+  const badge = document.getElementById('viewBadge');
+  badge.classList.toggle('visible', isViewing());
+
+  // автопрокрутка к активному
+  const active = listEl.querySelector('.move.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
 }
-function load() {
+
+function renderNav() {
+  document.getElementById('navStart').disabled = viewIndex === 0;
+  document.getElementById('navPrev').disabled  = viewIndex === 0;
+  document.getElementById('navNext').disabled  = viewIndex === states.length - 1;
+  document.getElementById('navEnd').disabled   = viewIndex === states.length - 1;
+  document.getElementById('undo').disabled     = states.length === 1 || isViewing();
+}
+
+function renderAll() {
+  renderBoard();
+  renderMoveList();
+  renderNav();
+  updateStatus();
+}
+
+// ---------- Сохранение ----------
+function saveAll() {
   try {
-    const s = localStorage.getItem('chess');
-    if (!s) return null;
-    const parsed = JSON.parse(s);
-    if (!parsed.board || !parsed.turn) return null;
-    return parsed;
-  } catch(e){ return null; }
+    // храним последние 200 позиций, чтобы не раздувать LS
+    const maxStates = 200;
+    const keepStates = states.slice(-maxStates);
+    const keepMoves  = moves.slice(-maxStates + 1);
+    localStorage.setItem(LS_STATES, JSON.stringify(keepStates));
+    localStorage.setItem(LS_MOVES, JSON.stringify(keepMoves));
+    localStorage.setItem(LS_FLIPPED, flipped ? '1' : '0');
+    localStorage.setItem(LS_FLIPOPP, flipOpponent ? '1' : '0');
+  } catch(e) {
+    console.error('SAVE FAILED', e);
+  }
+}
+
+function loadAll() {
+  try {
+    const rawStates = localStorage.getItem(LS_STATES);
+    const rawMoves  = localStorage.getItem(LS_MOVES);
+    if (rawStates) {
+      const parsed = JSON.parse(rawStates);
+      if (Array.isArray(parsed) && parsed.length && parsed[0]?.board) {
+        states = parsed;
+        moves = rawMoves ? JSON.parse(rawMoves) : [];
+      }
+    }
+  } catch(e) { console.error('LOAD FAILED', e); }
+
+  if (!states.length) {
+    states = [initialState()];
+    moves = [];
+  }
+  viewIndex = states.length - 1;
+
+  flipped      = localStorage.getItem(LS_FLIPPED) === '1';
+  flipOpponent = localStorage.getItem(LS_FLIPOPP) === '1';
+}
+
+function clearAll() {
+  try {
+    localStorage.removeItem(LS_STATES);
+    localStorage.removeItem(LS_MOVES);
+    localStorage.removeItem(LS_FLIPPED);
+    localStorage.removeItem(LS_FLIPOPP);
+  } catch(e) { console.error('CLEAR FAILED', e); }
 }
 
 // ---------- Кнопки ----------
 document.getElementById('undo').onclick = () => {
-  if (state.history.length===0) return;
-  state = JSON.parse(state.history.pop());
-  selected = null; legalForSelected = []; gameOver = false;
-  save(state);
-  render();
-  updateStatus();
+  if (states.length === 1 || isViewing()) return;
+  states.pop();
+  moves.pop();
+  viewIndex = states.length - 1;
+  gameOver = false;
+  selected = null; legalForSelected = [];
+  saveAll();
+  renderAll();
 };
 
 document.getElementById('flip').onclick = () => {
   flipped = !flipped;
-  localStorage.setItem('chess_flipped', flipped ? '1' : '0');
-  render();
+  saveAll();
+  renderBoard();
 };
 
 document.getElementById('flipOpp').onclick = () => {
   flipOpponent = !flipOpponent;
-  localStorage.setItem('chess_flipOpp', flipOpponent ? '1' : '0');
-  render();
+  saveAll();
+  renderBoard();
 };
 
-// старт
-render();
-updateStatus();
+document.getElementById('newGame').onclick = () => {
+  if (!confirm('Начать новую партию? Текущий прогресс будет удалён.')) return;
+  clearAll();
+  states = [initialState()];
+  moves = [];
+  viewIndex = 0;
+  selected = null; legalForSelected = [];
+  gameOver = false;
+  flipped = false;
+  flipOpponent = false;
+  saveAll();
+  renderAll();
+};
+
+document.getElementById('navStart').onclick = () => goTo(0);
+document.getElementById('navPrev').onclick  = () => goTo(viewIndex - 1);
+document.getElementById('navNext').onclick  = () => goTo(viewIndex + 1);
+document.getElementById('navEnd').onclick   = () => goTo(states.length - 1);
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft')  { goTo(viewIndex - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { goTo(viewIndex + 1); e.preventDefault(); }
+  if (e.key === 'Home')       { goTo(0); e.preventDefault(); }
+  if (e.key === 'End')        { goTo(states.length - 1); e.preventDefault(); }
+});
+
+// ---------- Старт ----------
+loadAll();
+renderAll();
+console.log('start: states', states.length, 'moves', moves.length, 'turn', currentState().turn);
 </script>
 </body>
 </html>
