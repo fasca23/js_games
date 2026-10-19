@@ -58,6 +58,8 @@ EXCLUDE_FILES=(
     "hamster_template_bundle.html"
     "index_bundle.html"
     "package-lock.json"
+    ""
+    ""
 )
 
 # Исключаемые расширения файлов
