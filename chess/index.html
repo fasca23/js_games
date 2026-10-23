@@ -2,17 +2,25 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Шахматы</title>
 <style>
-  body { font-family: sans-serif; display: flex; justify-content: center;
-         align-items: flex-start; gap: 20px; background: #222; color: #eee;
-         margin: 20px; }
-  #main { display: flex; flex-direction: column; align-items: center; }
-  #board { display: grid; grid-template-columns: repeat(8, 64px);
-           grid-template-rows: repeat(8, 64px); border: 3px solid #555;
-           user-select: none; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: sans-serif; background: #222; color: #eee;
+         min-height: 100vh; display: flex; justify-content: center;
+         align-items: flex-start; gap: 20px; padding: 20px; }
+
+  #main { display: flex; flex-direction: column; align-items: center;
+          width: 100%; max-width: 560px; }
+
+  #board { display: grid;
+           grid-template-columns: repeat(8, min(64px, calc((100vw - 56px) / 8)));
+           grid-template-rows:    repeat(8, min(64px, calc((100vw - 56px) / 8)));
+           border: 3px solid #555; user-select: none; touch-action: manipulation; }
   .cell { display: flex; align-items: center; justify-content: center;
-          font-size: 44px; cursor: pointer; position: relative; }
+          font-size: min(44px, calc((100vw - 56px) / 8 * 0.7));
+          cursor: pointer; position: relative; -webkit-tap-highlight-color: transparent; }
   .light { background: #f0d9b5; }
   .dark  { background: #b58863; }
   .selected { box-shadow: inset 0 0 0 4px #3498db; }
@@ -20,10 +28,19 @@
                  border-radius: 50%; background: rgba(52,152,219,.6); }
   .capture::after { background: rgba(231,76,60,.7); width: 46px; height: 46px; }
   .check { box-shadow: inset 0 0 0 4px #e74c3c; }
-  #status { margin: 16px; font-size: 20px; min-height: 24px; }
+  #status { margin: 12px 0; font-size: 18px; min-height: 24px; text-align: center;
+            width: 100%; }
+  #netRow { display: flex; align-items: center; gap: 8px; justify-content: center;
+            font-size: 14px; color: #aaa; min-height: 20px; margin-bottom: 4px; }
+  #netDot { width: 10px; height: 10px; border-radius: 50%;
+            background: #555; flex-shrink: 0; }
+  #netDot.online   { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+  #netDot.waiting  { background: #f1c40f; box-shadow: 0 0 6px #f1c40f; }
+  #netDot.offline  { background: #e74c3c; box-shadow: 0 0 6px #e74c3c; }
   #controls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
-              max-width: 520px; }
-  button { padding: 8px 14px; font-size: 15px; cursor: pointer; }
+              width: 100%; margin-top: 12px; }
+  button { padding: 8px 14px; font-size: 15px; cursor: pointer;
+           touch-action: manipulation; }
   button:disabled { opacity: .4; cursor: default; }
   .white-piece { color: #fff;
                  text-shadow: 0 0 1px #000, 0 0 1px #000, 0 0 1px #000,
@@ -32,41 +49,102 @@
                  text-shadow: 0 0 1px #fff, 0 0 1px #fff, 0 0 2px #fff; }
   .enemy-flip { transform: rotate(180deg); display: inline-block; }
 
-  /* ---------- панель истории ---------- */
   #sidebar { width: 260px; background: #2c2c2c; border: 1px solid #444;
              border-radius: 4px; display: flex; flex-direction: column;
-             max-height: 560px; }
+             max-height: 560px; flex-shrink: 0; }
   #sidebar h3 { margin: 0; padding: 10px 12px; font-size: 15px;
                 border-bottom: 1px solid #444; background: #333;
                 border-radius: 4px 4px 0 0; }
   #movelist { overflow-y: auto; flex: 1; padding: 6px 0; font-family: monospace;
-              font-size: 14px; }
+              font-size: 14px; -webkit-overflow-scrolling: touch; }
   .move-row { display: flex; align-items: center; padding: 0 8px; }
   .move-row:nth-child(even) { background: rgba(255,255,255,.03); }
   .move-row .num { width: 32px; color: #888; text-align: right;
                    padding-right: 6px; flex-shrink: 0; }
   .move { display: inline-block; min-width: 52px; padding: 4px 8px;
-          margin: 1px; border-radius: 3px; cursor: pointer; }
+          margin: 1px; border-radius: 3px; cursor: pointer;
+          -webkit-tap-highlight-color: transparent; }
   .move:hover { background: #444; }
   .move.active { background: #3498db; color: #fff; }
   .move.start { font-family: sans-serif; min-width: auto; }
   #viewBadge { display: none; background: #b8860b; color: #fff; padding: 6px 10px;
                text-align: center; font-size: 13px; }
   #viewBadge.visible { display: block; }
+
+  #menuToggle { position: fixed; top: 10px; right: 10px; z-index: 100;
+                width: 44px; height: 44px; padding: 0; border-radius: 50%;
+                background: #3498db; color: #fff; border: none;
+                font-size: 22px; line-height: 1; cursor: pointer;
+                box-shadow: 0 2px 8px rgba(0,0,0,.4);
+                touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+                display: flex; align-items: center; justify-content: center; }
+  #menuToggle:hover { background: #2980b9; }
+
+  body.menu-hidden #controls,
+  body.menu-hidden #sidebar { display: none; }
+  body.menu-hidden #status { margin: 8px 0; }
+
+  #promoOverlay { display: none; position: fixed; inset: 0;
+                  background: rgba(0,0,0,.6); z-index: 200;
+                  align-items: center; justify-content: center; }
+  #promoOverlay.visible { display: flex; }
+  #promoBox { background: #2c2c2c; border: 1px solid #555; border-radius: 6px;
+              padding: 16px; display: flex; gap: 8px; }
+  #promoBox button { font-size: 36px; padding: 8px 14px; min-width: 60px;
+                     background: #f0d9b5; color: #111; border: none;
+                     border-radius: 4px; }
+
+  #connOverlay { display: none; position: fixed; inset: 0;
+                 background: rgba(0,0,0,.6); z-index: 200;
+                 align-items: center; justify-content: center; }
+  #connOverlay.visible { display: flex; }
+  #connBox { background: #2c2c2c; border: 1px solid #555; border-radius: 6px;
+             padding: 20px; width: min(90vw, 360px);
+             display: flex; flex-direction: column; gap: 10px; }
+  #connBox label { font-size: 13px; color: #aaa; }
+  #connBox input { padding: 8px 10px; font-size: 14px; width: 100%;
+                   background: #1e1e1e; border: 1px solid #555;
+                   color: #eee; border-radius: 4px; }
+  #connBox .row { display: flex; gap: 8px; justify-content: flex-end;
+                  margin-top: 4px; }
+  #connBox .hint { font-size: 12px; color: #888; }
+
+  @media (max-width: 900px) {
+    body { flex-direction: column; align-items: center; padding: 10px; gap: 12px; }
+    #main { max-width: 100%; }
+    #sidebar { width: 100%; max-width: 560px; max-height: 220px; }
+    #movelist { font-size: 13px; }
+    #status { font-size: 16px; margin: 8px 0; }
+    button { padding: 10px 14px; font-size: 14px; }
+    .hint::after { width: 14px; height: 14px; }
+    .capture::after { width: 38px; height: 38px; }
+  }
+
+  @media (max-width: 380px) {
+    button { padding: 8px 10px; font-size: 13px; }
+    #sidebar { max-height: 180px; }
+  }
 </style>
 </head>
 <body>
 
+<button id="menuToggle" title="Меню">☰</button>
+
 <div id="main">
   <div id="status"></div>
+  <div id="netRow"><span id="netDot"></span><span id="netInfo"></span></div>
   <div id="board"></div>
-  <div id="controls" style="margin-top:16px">
+  <div id="controls">
     <button id="undo">Отменить ход</button>
     <button id="flip">Развернуть доску</button>
     <button id="flipOpp">Перевернуть фигуры противника</button>
     <button id="newGame">Новая партия</button>
   </div>
-  <div id="controls" style="margin-top:8px">
+  <div id="controls">
+    <button id="onlineBtn">По сети</button>
+    <button id="leaveBtn" style="display:none">Выйти из сети</button>
+  </div>
+  <div id="controls">
     <button id="navStart" title="Начало (Home)">⏮</button>
     <button id="navPrev"  title="Назад (←)">◀</button>
     <button id="navNext"  title="Вперёд (→)">▶</button>
@@ -80,13 +158,39 @@
   <div id="movelist"></div>
 </div>
 
+<div id="promoOverlay">
+  <div id="promoBox">
+    <button data-piece="q" title="Ферзь">♕</button>
+    <button data-piece="r" title="Ладья">♖</button>
+    <button data-piece="b" title="Слон">♗</button>
+    <button data-piece="n" title="Конь">♘</button>
+  </div>
+</div>
+
+<div id="connOverlay">
+  <div id="connBox">
+    <label>Сервер (WebSocket URL)</label>
+    <input id="connUrl" type="text" placeholder="ws://localhost:8080">
+    <label>Комната</label>
+    <input id="connRoom" type="text" placeholder="test">
+    <div class="hint" id="connHint"></div>
+    <div class="row">
+      <button id="connCancel">Отмена</button>
+      <button id="connOk">Подключиться</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const GLYPH = { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' };
 
-const LS_STATES  = 'chess_states';   // массив позиций (states[0] = начальная)
-const LS_MOVES   = 'chess_moves';    // массив строк нотации ("e2e4", ...)
+const LS_STATES  = 'chess_states';
+const LS_MOVES   = 'chess_moves';
 const LS_FLIPPED = 'chess_flipped';
 const LS_FLIPOPP = 'chess_flipOpp';
+const LS_MENU    = 'chess_menuHidden';
+const LS_SERVER  = 'chess_server';
+const LS_ROOM    = 'chess_room';
 
 function initialState() {
   const back = ['r','n','b','q','k','b','n','r'];
@@ -102,19 +206,24 @@ function initialState() {
            enPassant:null, halfmove:0 };
 }
 
-// ---------- Глобальное состояние ----------
-let states = [];      // массив позиций
-let moves  = [];      // moves[i] — нотация хода, приведшего к states[i+1]
-let viewIndex = 0;    // какой индекс states показываем
+let states = [];
+let moves  = [];
+let viewIndex = 0;
 let selected = null;
 let legalForSelected = [];
 let gameOver = false;
 let flipped = false;
 let flipOpponent = false;
+let menuHidden = false;
+
+// null = локальная игра; { ws, myColor, roomId, opponentConnected, wsUrl, synced }
+let online = null;
+let pendingPromotion = null;
 
 function currentState() { return states[states.length - 1]; }
 function viewState()    { return states[viewIndex]; }
 function isViewing()    { return viewIndex !== states.length - 1; }
+function isMyTurn()     { return !online || currentState().turn === online.myColor; }
 
 // ---------- Ходы ----------
 function inBounds(r,c){ return r>=0&&r<8&&c>=0&&c<8; }
@@ -218,15 +327,13 @@ function cloneState(s) {
            halfmove: s.halfmove };
 }
 
-// Возвращает НОВОЕ состояние, не мутирует вход.
-function applyMove(sIn, m) {
+function applyMove(sIn, m, promotionTo) {
   const s = cloneState(sIn);
   const [fr,fc] = m.from, [tr,tc] = m.to;
   const piece = s.board[fr][fc];
   const captured = s.board[tr][tc];
 
   if (m.enPassant) s.board[fr][tc] = null;
-
   s.board[tr][tc] = piece;
   s.board[fr][fc] = null;
 
@@ -238,8 +345,7 @@ function applyMove(sIn, m) {
   }
 
   if (m.promotion) {
-    const choice = prompt('Превращение (q/r/b/n):', 'q') || 'q';
-    const t = ['q','r','b','n'].includes(choice) ? choice : 'q';
+    const t = ['q','r','b','n'].includes(promotionTo) ? promotionTo : 'q';
     s.board[tr][tc] = {type:t, color:piece.color};
   }
 
@@ -282,41 +388,121 @@ function allLegalMoves(s, color) {
   return all;
 }
 
-// ---------- Нотация ----------
-function moveToNotation(sBefore, m) {
-  const files = 'abcdefgh';
-  const from = files[m.from[1]] + (8 - m.from[0]);
-  const to   = files[m.to[1]]   + (8 - m.to[0]);
-  let san = from + to;
-  if (m.castle) san = (m.castle === 'wK' || m.castle === 'bK') ? 'O-O' : 'O-O-O';
-  if (m.promotion) {
-    // применим ход, чтобы увидеть выбранную фигуру
-    // (её спросит prompt в applyMove — здесь просто отметим "=")
-    san += '=?';
+// ---------- SAN ----------
+const PIECE_LETTER = { k:'K', q:'Q', r:'R', b:'B', n:'N', p:'' };
+const FILES = 'abcdefgh';
+function sq(r, c) { return FILES[c] + (8 - r); }
+
+function toSAN(sBefore, move, promotionTo) {
+  const [fr, fc] = move.from;
+  const [tr, tc] = move.to;
+  const piece = sBefore.board[fr][fc];
+  const isCapture = !!sBefore.board[tr][tc] || move.enPassant;
+
+  let san;
+  if (move.castle) {
+    san = (move.castle === 'wK' || move.castle === 'bK') ? 'O-O' : 'O-O-O';
+  } else if (piece.type === 'p') {
+    san = (isCapture ? FILES[fc] + 'x' : '') + sq(tr, tc);
+    if (move.promotion) {
+      const t = ['q','r','b','n'].includes(promotionTo) ? promotionTo : 'q';
+      san += '=' + t.toUpperCase();
+    }
+  } else {
+    const others = [];
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      if (r === fr && c === fc) continue;
+      const p2 = sBefore.board[r][c];
+      if (!p2 || p2.color !== piece.color || p2.type !== piece.type) continue;
+      const ok = legalMovesFrom(sBefore, r, c).some(m =>
+        !m.castle && m.to[0] === tr && m.to[1] === tc);
+      if (ok) others.push([r, c]);
+    }
+    let disambig = '';
+    if (others.length > 0) {
+      const sameFile = others.some(([r, c]) => c === fc);
+      const sameRank = others.some(([r, c]) => r === fr);
+      if (!sameFile) disambig = FILES[fc];
+      else if (!sameRank) disambig = String(8 - fr);
+      else disambig = FILES[fc] + (8 - fr);
+    }
+    san = PIECE_LETTER[piece.type] + disambig +
+          (isCapture ? 'x' : '') + sq(tr, tc);
+  }
+
+  const after = applyMove(sBefore, move, promotionTo);
+  if (inCheck(after, after.turn)) {
+    san += allLegalMoves(after, after.turn).length === 0 ? '#' : '+';
   }
   return san;
 }
 
-// ---------- Игра ----------
+// ---------- Применение ----------
+function applyAndRender(move, promotionTo) {
+  const cur = currentState();
+  const san = toSAN(cur, move, promotionTo);
+  const next = applyMove(cur, move, promotionTo);
+  states.push(next);
+  moves.push(san);
+  viewIndex = states.length - 1;
+  selected = null; legalForSelected = [];
+  saveAll();
+  renderAll();
+}
+
+function askPromotion(cb) {
+  pendingPromotion = cb;
+  document.getElementById('promoOverlay').classList.add('visible');
+}
+
+document.querySelectorAll('#promoBox button').forEach(btn => {
+  btn.onclick = () => {
+    const choice = btn.dataset.piece;
+    document.getElementById('promoOverlay').classList.remove('visible');
+    const cb = pendingPromotion;
+    pendingPromotion = null;
+    if (cb) cb(choice);
+  };
+});
+
+function requestMove(move) {
+  if (!move.promotion) { doMove(move, undefined); return; }
+  askPromotion(choice => doMove(move, choice));
+}
+
+function doMove(move, promotionTo) {
+  if (online) {
+    online.ws.send(JSON.stringify({
+      type: 'move',
+      move: {
+        from: move.from, to: move.to,
+        castle: move.castle || null,
+        doublePush: !!move.doublePush,
+        enPassant: !!move.enPassant,
+        promotion: !!move.promotion,
+        promotionTo: promotionTo || null
+      }
+    }));
+    selected = null; legalForSelected = [];
+    renderAll();
+    return;
+  }
+  applyAndRender(move, promotionTo);
+}
+
+// ---------- Клики ----------
 function onCellClick(r, c) {
   if (gameOver) return;
-  if (isViewing()) return; // в просмотре ходить нельзя
+  if (isViewing()) return;
+  if (online && !online.synced) return;
+  if (online && !online.opponentConnected) return;
+  if (online && !isMyTurn()) return;
 
   const cur = currentState();
 
   if (selected) {
     const move = legalForSelected.find(m => m.to[0]===r && m.to[1]===c);
-    if (move) {
-      const next = applyMove(cur, move);
-      const notation = moveToNotation(cur, move);
-      states.push(next);
-      moves.push(notation);
-      viewIndex = states.length - 1;
-      selected = null; legalForSelected = [];
-      saveAll();
-      renderAll();
-      return;
-    }
+    if (move) { requestMove(move); return; }
   }
 
   const p = cur.board[r][c];
@@ -329,6 +515,152 @@ function onCellClick(r, c) {
   renderAll();
 }
 
+// ---------- Сеть ----------
+function connectOnline(url, roomId) {
+  let ws;
+  try { ws = new WebSocket(url); }
+  catch(e) { alert('Не удалось создать WebSocket: ' + e.message); return; }
+
+  online = { ws, myColor: null, roomId, opponentConnected: false,
+             wsUrl: url, synced: false };
+  setNetStatus('waiting', 'Подключение к ' + url + '...');
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({ type: 'join', roomId }));
+    setNetStatus('waiting', 'Вход в комнату ' + roomId + '...');
+    updateButtons();
+    renderAll();
+  });
+
+  ws.addEventListener('message', (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+    handleServerMessage(msg);
+  });
+
+  ws.addEventListener('close', () => {
+    if (online) {
+      setNetStatus('offline', 'Соединение закрыто');
+      online = null;
+      updateButtons();
+      renderAll();
+    }
+  });
+
+  ws.addEventListener('error', () => {
+    setNetStatus('offline', 'Ошибка WebSocket');
+  });
+
+  try {
+    localStorage.setItem(LS_SERVER, url);
+    localStorage.setItem(LS_ROOM, roomId);
+  } catch {}
+}
+
+function handleServerMessage(msg) {
+  switch (msg.type) {
+    case 'assigned': {
+      online.myColor = msg.color;
+      online.roomId = msg.roomId;
+      // ---- синхронизация по истории ----
+      applyServerHistory(msg.history || []);
+      online.synced = true;
+
+      const colorName = msg.color === 'w' ? 'белых' : 'чёрных';
+      const turnName  = msg.turn === 'w' ? 'белых' : 'чёрных';
+      const histLen = (msg.history || []).length;
+      let info = 'Комната ' + msg.roomId + ' — вы за ' + colorName;
+      if (histLen > 0) info += ' (восстановлено ' + histLen + ' ход.)';
+      if (msg.turn) info += '. Ход ' + turnName;
+      setNetStatus(msg.opponentConnected ? 'online' : 'waiting', info);
+
+      // если в комнате уже есть второй игрок — считаем его подключённым
+      updateButtons();
+      renderAll();
+      break;
+    }
+
+    case 'opponent_joined':
+      online.opponentConnected = true;
+      setNetStatus('online', 'Соперник подключён. Комната ' + online.roomId);
+      updateButtons();
+      renderAll();
+      break;
+
+    case 'opponent_left':
+      online.opponentConnected = false;
+      setNetStatus('waiting', 'Соперник отключился. Ждём...');
+      updateButtons();
+      renderAll();
+      break;
+
+    case 'move': {
+      const cur = currentState();
+      const legal = allLegalMoves(cur, cur.turn);
+      const m = legal.find(x =>
+        x.from[0] === msg.move.from[0] && x.from[1] === msg.move.from[1] &&
+        x.to[0]   === msg.move.to[0]   && x.to[1]   === msg.move.to[1]
+      );
+      if (!m) { console.error('illegal move from server:', msg.move); return; }
+      applyAndRender(m, msg.move.promotionTo || undefined);
+      break;
+    }
+
+    case 'error':
+      setNetStatus('offline', 'Ошибка: ' + msg.message);
+      break;
+  }
+}
+
+// Пересобирает states/moves из истории сервера
+function applyServerHistory(history) {
+  states = [initialState()];
+  moves  = [];
+  let cur = states[0];
+  for (const item of history) {
+    const move = item.move;
+    const promo = item.promotionTo || undefined;
+    // ищем легальный ход в текущей позиции
+    const legal = allLegalMoves(cur, cur.turn);
+    const m = legal.find(x =>
+      x.from[0] === move.from[0] && x.from[1] === move.from[1] &&
+      x.to[0]   === move.to[0]   && x.to[1]   === move.to[1]
+    );
+    if (!m) { console.warn('skip illegal history move', move); continue; }
+    const san = toSAN(cur, m, promo);
+    cur = applyMove(cur, m, promo);
+    states.push(cur);
+    moves.push(san);
+  }
+  viewIndex = states.length - 1;
+  selected = null; legalForSelected = [];
+  gameOver = false;
+}
+
+function setNetStatus(kind, text) {
+  const dot = document.getElementById('netDot');
+  dot.className = kind || '';
+  document.getElementById('netInfo').textContent = text || '';
+}
+
+function updateButtons() {
+  const onlineBtn = document.getElementById('onlineBtn');
+  const leaveBtn  = document.getElementById('leaveBtn');
+  onlineBtn.style.display = online ? 'none' : '';
+  leaveBtn.style.display  = online ? '' : 'none';
+  document.getElementById('undo').disabled =
+    states.length === 1 || isViewing() || !!online;
+}
+
+function disconnectOnline() {
+  if (online && online.ws) { try { online.ws.close(); } catch {} }
+  online = null;
+  setNetStatus('', '');
+  updateButtons();
+  renderAll();
+}
+
+// ---------- Статус ----------
 function updateStatus() {
   const statusEl = document.getElementById('status');
   const s = viewState();
@@ -339,7 +671,6 @@ function updateStatus() {
     statusEl.textContent = `Просмотр: позиция после хода ${viewIndex} из ${states.length - 1}`;
     return;
   }
-
   if (legal.length === 0) {
     gameOver = true;
     if (inChk) statusEl.textContent = `Мат! Победили ${s.turn==='w'?'чёрные':'белые'}`;
@@ -351,8 +682,18 @@ function updateStatus() {
     statusEl.textContent = 'Ничья по правилу 50 ходов';
     return;
   }
-  const side = s.turn==='w' ? 'Белые' : 'Чёрные';
-  statusEl.textContent = `Ход: ${side}` + (inChk ? ' — ШАХ!' : '');
+  let text;
+  if (online) {
+    if (!online.synced) text = 'Синхронизация...';
+    else if (!online.opponentConnected) text = 'Ожидание соперника...';
+    else if (s.turn === online.myColor)
+      text = `Ваш ход (вы ${online.myColor === 'w' ? 'белые' : 'чёрные'})`;
+    else text = 'Ход соперника...';
+  } else {
+    text = `Ход: ${s.turn==='w' ? 'Белые' : 'Чёрные'}`;
+  }
+  if (inChk) text += ' — ШАХ!';
+  statusEl.textContent = text;
 }
 
 // ---------- Навигация ----------
@@ -360,11 +701,7 @@ function goTo(index) {
   const max = states.length - 1;
   viewIndex = Math.max(0, Math.min(index, max));
   selected = null; legalForSelected = [];
-  // если вернулись к концу партии — пересчитать gameOver
   gameOver = false;
-  if (viewIndex === max) {
-    // updateStatus выставит gameOver при необходимости
-  }
   renderAll();
 }
 
@@ -378,7 +715,6 @@ function renderBoard() {
   for (let dr = 0; dr < 8; dr++) for (let dc = 0; dc < 8; dc++) {
     const r = flipped ? 7 - dr : dr;
     const c = flipped ? 7 - dc : dc;
-
     const cell = document.createElement('div');
     cell.className = 'cell ' + ((r + c) % 2 ? 'dark' : 'light');
 
@@ -408,7 +744,6 @@ function renderMoveList() {
   const listEl = document.getElementById('movelist');
   listEl.innerHTML = '';
 
-  // начальная позиция
   const startRow = document.createElement('div');
   startRow.className = 'move-row';
   const startNum = document.createElement('span');
@@ -425,12 +760,10 @@ function renderMoveList() {
   for (let i = 0; i < moves.length; i += 2) {
     const row = document.createElement('div');
     row.className = 'move-row';
-
     const num = document.createElement('span');
     num.className = 'num';
     num.textContent = (i/2 + 1) + '.';
     row.appendChild(num);
-
     for (let j = 0; j < 2; j++) {
       const k = i + j;
       if (k >= moves.length) break;
@@ -444,11 +777,7 @@ function renderMoveList() {
     listEl.appendChild(row);
   }
 
-  // бейдж режима просмотра
-  const badge = document.getElementById('viewBadge');
-  badge.classList.toggle('visible', isViewing());
-
-  // автопрокрутка к активному
+  document.getElementById('viewBadge').classList.toggle('visible', isViewing());
   const active = listEl.querySelector('.move.active');
   if (active) active.scrollIntoView({ block: 'nearest' });
 }
@@ -458,30 +787,32 @@ function renderNav() {
   document.getElementById('navPrev').disabled  = viewIndex === 0;
   document.getElementById('navNext').disabled  = viewIndex === states.length - 1;
   document.getElementById('navEnd').disabled   = viewIndex === states.length - 1;
-  document.getElementById('undo').disabled     = states.length === 1 || isViewing();
 }
 
 function renderAll() {
   renderBoard();
   renderMoveList();
   renderNav();
+  updateButtons();
   updateStatus();
+}
+
+// ---------- Меню ----------
+function applyMenuVisibility() {
+  document.body.classList.toggle('menu-hidden', menuHidden);
+  document.getElementById('menuToggle').textContent = menuHidden ? '☰' : '✕';
 }
 
 // ---------- Сохранение ----------
 function saveAll() {
   try {
-    // храним последние 200 позиций, чтобы не раздувать LS
     const maxStates = 200;
-    const keepStates = states.slice(-maxStates);
-    const keepMoves  = moves.slice(-maxStates + 1);
-    localStorage.setItem(LS_STATES, JSON.stringify(keepStates));
-    localStorage.setItem(LS_MOVES, JSON.stringify(keepMoves));
+    localStorage.setItem(LS_STATES, JSON.stringify(states.slice(-maxStates)));
+    localStorage.setItem(LS_MOVES,  JSON.stringify(moves.slice(-maxStates + 1)));
     localStorage.setItem(LS_FLIPPED, flipped ? '1' : '0');
     localStorage.setItem(LS_FLIPOPP, flipOpponent ? '1' : '0');
-  } catch(e) {
-    console.error('SAVE FAILED', e);
-  }
+    localStorage.setItem(LS_MENU, menuHidden ? '1' : '0');
+  } catch(e) { console.error('SAVE FAILED', e); }
 }
 
 function loadAll() {
@@ -497,30 +828,71 @@ function loadAll() {
     }
   } catch(e) { console.error('LOAD FAILED', e); }
 
-  if (!states.length) {
-    states = [initialState()];
-    moves = [];
-  }
+  if (!states.length) { states = [initialState()]; moves = []; }
   viewIndex = states.length - 1;
 
   flipped      = localStorage.getItem(LS_FLIPPED) === '1';
   flipOpponent = localStorage.getItem(LS_FLIPOPP) === '1';
+  menuHidden   = localStorage.getItem(LS_MENU) === '1';
 }
 
 function clearAll() {
   try {
-    localStorage.removeItem(LS_STATES);
-    localStorage.removeItem(LS_MOVES);
-    localStorage.removeItem(LS_FLIPPED);
-    localStorage.removeItem(LS_FLIPOPP);
+    [LS_STATES, LS_MOVES, LS_FLIPPED, LS_FLIPOPP, LS_MENU]
+      .forEach(k => localStorage.removeItem(k));
   } catch(e) { console.error('CLEAR FAILED', e); }
 }
 
+// ---------- Окно подключения ----------
+function defaultServerUrl() {
+  const saved = localStorage.getItem(LS_SERVER);
+  if (saved) return saved;
+  if (location.protocol === 'https:') return 'wss://' + location.host;
+  if (location.host) return 'ws://' + location.host;
+  return 'ws://localhost:8080';
+}
+
+function openConnDialog() {
+  const urlInput  = document.getElementById('connUrl');
+  const roomInput = document.getElementById('connRoom');
+  const hint      = document.getElementById('connHint');
+  urlInput.value  = defaultServerUrl();
+  roomInput.value = localStorage.getItem(LS_ROOM)
+    || new URLSearchParams(location.search).get('room')
+    || 'test';
+  hint.textContent = location.protocol === 'https:'
+    ? 'Для https-страницы нужен wss:// сервер.'
+    : 'Локально: ws://localhost:8080';
+  document.getElementById('connOverlay').classList.add('visible');
+  urlInput.focus();
+}
+
+document.getElementById('connOk').onclick = () => {
+  const url  = document.getElementById('connUrl').value.trim();
+  const room = document.getElementById('connRoom').value.trim();
+  if (!url || !room) return;
+  document.getElementById('connOverlay').classList.remove('visible');
+  connectOnline(url, room);
+  try {
+    const u = new URL(location.href);
+    u.searchParams.set('room', room);
+    history.replaceState({}, '', u);
+  } catch {}
+};
+
+document.getElementById('connCancel').onclick = () => {
+  document.getElementById('connOverlay').classList.remove('visible');
+};
+
+document.getElementById('connOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'connOverlay')
+    document.getElementById('connOverlay').classList.remove('visible');
+});
+
 // ---------- Кнопки ----------
 document.getElementById('undo').onclick = () => {
-  if (states.length === 1 || isViewing()) return;
-  states.pop();
-  moves.pop();
+  if (states.length === 1 || isViewing() || online) return;
+  states.pop(); moves.pop();
   viewIndex = states.length - 1;
   gameOver = false;
   selected = null; legalForSelected = [];
@@ -529,29 +901,42 @@ document.getElementById('undo').onclick = () => {
 };
 
 document.getElementById('flip').onclick = () => {
-  flipped = !flipped;
-  saveAll();
-  renderBoard();
+  flipped = !flipped; saveAll(); renderBoard();
 };
 
 document.getElementById('flipOpp').onclick = () => {
-  flipOpponent = !flipOpponent;
-  saveAll();
-  renderBoard();
+  flipOpponent = !flipOpponent; saveAll(); renderBoard();
 };
 
 document.getElementById('newGame').onclick = () => {
   if (!confirm('Начать новую партию? Текущий прогресс будет удалён.')) return;
+  if (online) {
+    if (!confirm('Вы в сетевой партии. Выйти из сети и начать новую?')) return;
+    disconnectOnline();
+  }
   clearAll();
   states = [initialState()];
   moves = [];
   viewIndex = 0;
   selected = null; legalForSelected = [];
   gameOver = false;
-  flipped = false;
-  flipOpponent = false;
+  flipped = false; flipOpponent = false; menuHidden = false;
+  applyMenuVisibility();
   saveAll();
   renderAll();
+};
+
+document.getElementById('onlineBtn').onclick = openConnDialog;
+
+document.getElementById('leaveBtn').onclick = () => {
+  if (!confirm('Выйти из сети? Партия останется в локальной истории.')) return;
+  disconnectOnline();
+};
+
+document.getElementById('menuToggle').onclick = () => {
+  menuHidden = !menuHidden;
+  applyMenuVisibility();
+  saveAll();
 };
 
 document.getElementById('navStart').onclick = () => goTo(0);
@@ -565,11 +950,26 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { goTo(viewIndex + 1); e.preventDefault(); }
   if (e.key === 'Home')       { goTo(0); e.preventDefault(); }
   if (e.key === 'End')        { goTo(states.length - 1); e.preventDefault(); }
+  if (e.key === 'm' || e.key === 'M' || e.key === 'ь' || e.key === 'Ь') {
+    menuHidden = !menuHidden; applyMenuVisibility(); saveAll();
+  }
 });
 
 // ---------- Старт ----------
 loadAll();
+applyMenuVisibility();
 renderAll();
+
+// если в URL или в памяти осталась комната — предложить вернуться
+const urlRoom  = new URLSearchParams(location.search).get('room');
+const savedRoom = localStorage.getItem(LS_ROOM);
+const suggestRoom = urlRoom || savedRoom;
+if (suggestRoom) {
+  if (confirm('Подключиться к комнате «' + suggestRoom + '»?')) {
+    connectOnline(defaultServerUrl(), suggestRoom);
+  }
+}
+
 console.log('start: states', states.length, 'moves', moves.length, 'turn', currentState().turn);
 </script>
 </body>
